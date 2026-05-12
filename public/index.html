@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VoteChain — Anonymous Blockchain Voting</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+  </head>
+  <body>
+
+    <!-- Animated background blobs -->
+    <div class="bg-blobs" aria-hidden="true">
+      <div class="blob blob-1"></div>
+      <div class="blob blob-2"></div>
+      <div class="blob blob-3"></div>
+    </div>
+
+    <!-- Top navbar -->
+    <nav class="navbar">
+      <div class="nav-brand">
+        <span class="nav-icon">⛓</span>
+        <span class="nav-title">VoteChain</span>
+        <span class="nav-badge">Testnet</span>
+      </div>
+      <div class="nav-right">
+        <div id="networkBadge" class="net-badge">Not Connected</div>
+        <button id="connectWallet" class="btn btn-ghost">
+          <span class="btn-icon">🦊</span> Connect Wallet
+        </button>
+      </div>
+    </nav>
+
+    <div class="page-wrap">
+
+      <!-- Hero -->
+      <header class="hero">
+        <h1 class="hero-title">Anonymous<br /><span class="gradient-text">Blockchain Voting</span></h1>
+        <p class="hero-sub">CNIC-verified eligibility. Privacy-preserving commitment scheme. One person, one vote — forever on-chain.</p>
+
+        <!-- Wallet card -->
+        <div id="walletCard" class="wallet-card hidden">
+          <div class="wallet-dot"></div>
+          <span id="walletShort">-</span>
+          <span class="wallet-sep">|</span>
+          <span id="walletFull" class="wallet-full">-</span>
+        </div>
+      </header>
+
+      <!-- Step progress -->
+      <div class="stepper">
+        <div class="step active" id="step-indicator-1">
+          <div class="step-circle">1</div>
+          <div class="step-label">Config</div>
+        </div>
+        <div class="step-line"></div>
+        <div class="step" id="step-indicator-2">
+          <div class="step-circle">2</div>
+          <div class="step-label">Identity</div>
+        </div>
+        <div class="step-line"></div>
+        <div class="step" id="step-indicator-3">
+          <div class="step-circle">3</div>
+          <div class="step-label">Register</div>
+        </div>
+        <div class="step-line"></div>
+        <div class="step" id="step-indicator-4">
+          <div class="step-circle">4</div>
+          <div class="step-label">Vote</div>
+        </div>
+        <div class="step-line"></div>
+        <div class="step" id="step-indicator-5">
+          <div class="step-circle">5</div>
+          <div class="step-label">Results</div>
+        </div>
+      </div>
+
+      <main class="cards-grid">
+
+        <!-- Card 1 — Config -->
+        <div class="card" id="card-config">
+          <div class="card-header">
+            <div class="card-num">01</div>
+            <div>
+              <div class="card-title">Contract Config</div>
+              <div class="card-desc">Paste the deployed Ballot contract address</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <label class="field-label">Ballot Contract Address</label>
+            <div class="input-group">
+              <span class="input-icon">📋</span>
+              <input id="ballotAddress" class="field-input" placeholder="0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512" />
+            </div>
+            <div class="hint-box">
+              <span class="hint-icon">💡</span>
+              <span>Copy the address printed during <code>npm run deploy:local</code></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2 — Identity -->
+        <div class="card" id="card-identity">
+          <div class="card-header">
+            <div class="card-num">02</div>
+            <div>
+              <div class="card-title">Voter Identity</div>
+              <div class="card-desc">Generate anonymous commitment from CNIC + secret</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <label class="field-label">CNIC (13 digits)</label>
+            <div class="input-group">
+              <span class="input-icon">🪪</span>
+              <input id="cnic" class="field-input" placeholder="1111111111111" maxlength="13" />
+            </div>
+            <label class="field-label" style="margin-top:14px">Secret Passphrase</label>
+            <div class="input-group">
+              <span class="input-icon">🔒</span>
+              <input id="secret" class="field-input" type="password" placeholder="Your private passphrase" />
+            </div>
+            <button id="generate" class="btn btn-primary" style="margin-top:16px;width:100%">
+              <span>✨</span> Generate Commitment &amp; Nullifier
+            </button>
+            <div id="commitmentBox" class="hash-box hidden">
+              <div class="hash-row">
+                <span class="hash-label">Commitment</span>
+                <span id="commitmentText" class="hash-val">-</span>
+              </div>
+              <div class="hash-row">
+                <span class="hash-label">Nullifier</span>
+                <span id="nullifierText" class="hash-val">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 3 — Registration -->
+        <div class="card" id="card-register">
+          <div class="card-header">
+            <div class="card-num">03</div>
+            <div>
+              <div class="card-title">Eligibility &amp; Registration</div>
+              <div class="card-desc">Verify CNIC then register commitment on-chain</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="two-col">
+              <button id="verifyCnic" class="btn btn-outline">
+                <span>🔍</span> Check CNIC
+              </button>
+              <button id="registerCommitment" class="btn btn-primary">
+                <span>🔗</span> Register On-Chain
+              </button>
+            </div>
+            <div id="eligibilityResult" class="status-pill hidden"></div>
+          </div>
+        </div>
+
+        <!-- Card 4 — Vote -->
+        <div class="card" id="card-vote">
+          <div class="card-header">
+            <div class="card-num">04</div>
+            <div>
+              <div class="card-title">Cast Your Vote</div>
+              <div class="card-desc">Select a candidate and submit transaction</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <label class="field-label">Proposal ID</label>
+            <div class="proposal-picker">
+              <button class="proposal-btn active" data-id="0">0 — Candidate A</button>
+              <button class="proposal-btn" data-id="1">1 — Candidate B</button>
+              <button class="proposal-btn" data-id="2">2 — Candidate C</button>
+            </div>
+            <input id="proposalId" type="hidden" value="0" />
+            <button id="castVote" class="btn btn-vote" style="margin-top:16px;width:100%">
+              <span>🗳</span> Cast Vote
+            </button>
+            <div id="txBox" class="tx-box hidden">
+              <div class="tx-label">Transaction Hash</div>
+              <a id="txLink" class="tx-hash" href="#" target="_blank">-</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 5 — Results -->
+        <div class="card card-wide" id="card-results">
+          <div class="card-header">
+            <div class="card-num">05</div>
+            <div>
+              <div class="card-title">Live Results</div>
+              <div class="card-desc">On-chain vote tally</div>
+            </div>
+            <button id="loadResults" class="btn btn-ghost" style="margin-left:auto">
+              <span>🔄</span> Refresh
+            </button>
+          </div>
+          <div class="card-body">
+            <div id="resultsBars" class="results-bars">
+              <div class="results-empty">Click Refresh to load results</div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+
+      <!-- Toast notification -->
+      <div id="toast" class="toast hidden">
+        <span id="toastIcon">ℹ️</span>
+        <span id="toastMsg">-</span>
+      </div>
+
+    </div>
+
+    <footer class="footer">
+      Built with Solidity · Hardhat · ethers.js &nbsp;|&nbsp; Testnet Demo
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
