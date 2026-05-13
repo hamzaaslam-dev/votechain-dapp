@@ -19,7 +19,7 @@ This project is a student-friendly blockchain voting app with:
 - `lib/applicationStore.js` + `lib/applicationsHandlers.js`: voter applications queue (JSON file `data/applications.json` when writable)
 - `public/`: browser UI (MetaMask for voters and for admin actions)
 - `public/admin.html`: admin dashboard (pending applications + wallet approve)
-- `api/`: Vercel serverless routes (same JSON API as local if you deploy there; on Vercel use a real DB for applications in production)
+- `api/`: Vercel serverless (`/api/apply`, `/api/admin/applications-list`, `/api/admin/application-action`). Admin APIs require a **wallet-signed session** in the JSON body (same format as local).
 
 ## Roles (who is “admin”)
 
@@ -63,7 +63,7 @@ In another terminal:
 npm run deploy:local
 ```
 
-Copy **VoterRegistry**, **ElectionFactory**, and **Ballot** addresses into the web UI (Registry + Factory in Admin; Ballot in Config).
+After deploy, refresh the app — **contract addresses load from `public/deployed-addresses.json`** (created by the deploy script). Ensure MetaMask uses the same **chain ID** as in that file.
 
 5. Testnet deploy (Sepolia)
 
@@ -81,14 +81,15 @@ npm run start:api
 
 Open `http://localhost:3001` (voter) and `http://localhost:3001/admin.html` (admin dashboard).
 
-Set **`DASHBOARD_TOKEN`** in `.env` before using the dashboard in production (otherwise the server allows listing without a token and logs a warning).
+Set **`SEPOLIA_RPC_URL`** or **`RPC_URL`** in `.env` to the same chain MetaMask uses (defaults to `http://127.0.0.1:8545` for local). The server needs this to verify your **wallet signature** against on-chain `VoterRegistry.admin()` — no dashboard password.
 
 ### Voter → admin approval flow
 
-1. Voter: identity (CNIC + secret) → **Generate commitment** → **Apply for voter access** (name + phone) → submit.
-2. Admin: open **`/admin.html`**, paste **`DASHBOARD_TOKEN`** and **VoterRegistry** address → **Load pending**.
-3. Admin: for each row, **Approve (wallet)** → MetaMask sends `addEligibleVoters([commitment])`, then the row is marked approved with tx hash; or **Reject** to dismiss without on-chain action.
-4. Voter: can **Cast vote** once the commitment is on-chain and the ballot is open.
+1. **Deploy** once — `public/deployed-addresses.json` is written automatically (gitignored). Refresh the site: **registry, factory, and ballot addresses load by themselves** (no copy/paste).
+2. Voter: CNIC + secret → **Generate commitment** → **Apply for voter access** (name + phone) → submit.
+3. Admin: open **`/admin.html`**, connect **registry admin** wallet → **Sign & load applications** (one MetaMask message, valid ~1 hour) → table appears.
+4. Admin: **Approve (wallet)** per row — MetaMask sends `addEligibleVoters`; **Reject** only updates the list.
+5. Voter: **Cast vote** when the ballot is open.
 
 ### Admin flow in the UI (wallet)
 

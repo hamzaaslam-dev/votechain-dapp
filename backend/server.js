@@ -27,13 +27,23 @@ app.get("/api/health", (_, res) => {
 
 app.post("/api/apply", (req, res) => applicationsHandlers.handleApply(req, res));
 
-app.get("/api/admin/applications", (req, res) => applicationsHandlers.handleAdminApplications(req, res));
+app.post("/api/admin/applications-list", async (req, res, next) => {
+  try {
+    await applicationsHandlers.handleAdminApplicationsList(req, res);
+  } catch (e) {
+    next(e);
+  }
+});
 
-app.post("/api/admin/application-action", (req, res) => {
-  const action = String(req.body?.action || "").trim();
-  if (action === "reject") return applicationsHandlers.handleAdminReject(req, res);
-  if (action === "mark-approved") return applicationsHandlers.handleAdminMarkApproved(req, res);
-  return res.status(400).json({ ok: false, message: "action must be reject or mark-approved" });
+app.post("/api/admin/application-action", async (req, res, next) => {
+  try {
+    const action = String(req.body?.action || "").trim();
+    if (action === "reject") await applicationsHandlers.handleAdminReject(req, res);
+    else if (action === "mark-approved") await applicationsHandlers.handleAdminMarkApproved(req, res);
+    else res.status(400).json({ ok: false, message: "action must be reject or mark-approved" });
+  } catch (e) {
+    next(e);
+  }
 });
 
 app.post("/api/verify-cnic", (req, res) => {
@@ -75,6 +85,12 @@ app.post("/api/admin/add-commitment", async (req, res) => {
   } catch (error) {
     res.status(500).json({ ok: false, message: error.message });
   }
+});
+
+app.use((err, req, res, next) => {
+  console.error(err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ ok: false, message: err.message || "Server error" });
 });
 
 const port = process.env.PORT || 3001;

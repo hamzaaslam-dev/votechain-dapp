@@ -98,8 +98,9 @@
             </div>
             <div class="hint-box">
               <span class="hint-icon">💡</span>
-              <span>Paste addresses from <code>npm run deploy:local</code> or <code>npm run deploy:sepolia</code></span>
+              <span>After <code>npm run deploy:local</code> or <code>npm run deploy:sepolia</code>, addresses load automatically from <code>deployed-addresses.json</code>.</span>
             </div>
+            <p id="deployHint" class="admin-hint" style="margin-top: 10px"></p>
           </div>
         </div>
 
@@ -109,7 +110,7 @@
             <div class="card-num">ADM</div>
             <div>
               <div class="card-title">Admin (wallet)</div>
-              <div class="card-desc">Connect the deployer wallet. Approve MetaMask for each action: add voters, create elections, start voting.</div>
+              <div class="card-desc">Contracts load from your last deploy file. Connect wallet — only registry/factory admins see ✓.</div>
             </div>
             <button type="button" id="refreshAdminRole" class="btn btn-ghost" style="margin-left:auto">
               <span>🔎</span> Check roles
@@ -333,6 +334,7 @@
       Built with Solidity · Hardhat · ethers.js &nbsp;|&nbsp; Testnet Demo
     </footer>
 
+    <script src="shared-config.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

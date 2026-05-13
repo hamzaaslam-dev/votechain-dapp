@@ -1,3 +1,5 @@
+const fs = require("fs");
+const path = require("path");
 const hre = require("hardhat");
 
 function toBytes32(text) {
@@ -47,6 +49,24 @@ async function main() {
   console.log("");
   console.log("Admin wallet (registry + factory admin):", deployer.address);
   console.log("Create more elections from the app using Factory + your wallet.");
+
+  const net = await hre.ethers.provider.getNetwork();
+  const deployedPath = path.join(__dirname, "..", "public", "deployed-addresses.json");
+  fs.writeFileSync(
+    deployedPath,
+    JSON.stringify(
+      {
+        registry: registryAddress,
+        factory: factoryAddress,
+        ballot: ballotAddress,
+        chainId: Number(net.chainId),
+        updatedAt: new Date().toISOString()
+      },
+      null,
+      2
+    )
+  );
+  console.log("Wrote public/deployed-addresses.json (UI loads this — no copy/paste).");
 }
 
 main().catch((err) => {

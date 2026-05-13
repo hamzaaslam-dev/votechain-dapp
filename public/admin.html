@@ -21,7 +21,7 @@
       <div class="nav-brand">
         <span class="nav-icon">🛡</span>
         <span class="nav-title">Admin dashboard</span>
-        <span class="nav-badge">Registry</span>
+        <span class="nav-badge">Wallet only</span>
       </div>
       <div class="nav-right">
         <a href="index.html" class="btn btn-ghost nav-dash">← Voter app</a>
@@ -31,43 +31,39 @@
 
     <div class="page-wrap" style="padding-top: 24px">
       <header class="hero" style="padding-top: 24px; padding-bottom: 20px">
-        <h1 class="hero-title" style="font-size: 2rem">Review applications</h1>
-        <p class="hero-sub">Load pending voters, then <strong>Approve</strong> to register their commitment on-chain with MetaMask, or <strong>Reject</strong>.</p>
+        <h1 class="hero-title" style="font-size: 2rem">Approve voters</h1>
+        <p class="hero-sub">
+          No passwords or copied addresses. Connect the <strong>registry admin</strong> wallet, sign once to open the queue, then approve each row with MetaMask.
+        </p>
+        <p id="deployHint" class="admin-hint" style="max-width: 640px; margin: 12px auto 0"></p>
       </header>
 
       <div class="card card-wide">
         <div class="card-header">
-          <div class="card-num">⚙</div>
+          <div class="card-num">1</div>
           <div>
-            <div class="card-title">Dashboard access</div>
-            <div class="card-desc">Bearer token must match <code>DASHBOARD_TOKEN</code> in server <code>.env</code> (set a long random string).</div>
+            <div class="card-title">Sign in</div>
+            <div class="card-desc">Uses the same <code>deployed-addresses.json</code> as the voter app. Your signature proves you are on-chain <code>VoterRegistry.admin()</code>.</div>
           </div>
         </div>
         <div class="card-body">
-          <label class="field-label">Dashboard token</label>
-          <div class="input-group">
-            <span class="input-icon">🔑</span>
-            <input id="dashToken" class="field-input" type="password" placeholder="Paste DASHBOARD_TOKEN" autocomplete="off" />
+          <div class="admin-grid">
+            <button type="button" id="btnSignAndLoad" class="btn btn-primary" disabled>
+              <span>✍️</span> Sign &amp; load applications
+            </button>
+            <button type="button" id="btnClearSession" class="btn btn-outline"><span>🚪</span> Clear session</button>
           </div>
-          <label class="field-label" style="margin-top: 12px">VoterRegistry contract</label>
-          <div class="input-group">
-            <span class="input-icon">📒</span>
-            <input id="registryAddress" class="field-input" placeholder="0x…" />
-          </div>
-          <div class="admin-grid" style="margin-top: 12px">
-            <button type="button" id="saveSettings" class="btn btn-outline"><span>💾</span> Save in browser</button>
-            <button type="button" id="loadPending" class="btn btn-primary"><span>🔄</span> Load pending</button>
-          </div>
-          <p id="dashStatus" class="admin-hint" style="margin-top: 10px"></p>
+          <p id="dashStatus" class="admin-hint" style="margin-top: 12px"></p>
+          <input type="hidden" id="registryAddress" />
         </div>
       </div>
 
       <div class="card card-wide" style="margin-top: 20px">
         <div class="card-header">
-          <div class="card-num">📋</div>
+          <div class="card-num">2</div>
           <div>
-            <div class="card-title">Pending applications</div>
-            <div class="card-desc">Name, CNIC, phone, commitment — approve sends <code>addEligibleVoters</code> from your wallet.</div>
+            <div class="card-title">Applications</div>
+            <div class="card-desc">Approve registers the commitment on-chain from your wallet. Reject only updates this list.</div>
           </div>
           <select id="statusFilter" class="field-input" style="max-width: 160px; margin-left: auto; padding: 8px 10px">
             <option value="pending">Pending</option>
@@ -89,7 +85,9 @@
               </tr>
             </thead>
             <tbody id="appsBody">
-              <tr><td colspan="6" class="dash-empty">Load pending to see rows</td></tr>
+              <tr>
+                <td colspan="6" class="dash-empty">Connect wallet, then sign &amp; load</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -98,6 +96,7 @@
 
     <div id="toast" class="toast hidden"><span id="toastIcon">ℹ️</span><span id="toastMsg">-</span></div>
 
+    <script src="shared-config.js"></script>
     <script src="admin-dashboard.js"></script>
   </body>
 </html>

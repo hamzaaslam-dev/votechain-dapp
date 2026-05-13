@@ -64,13 +64,13 @@ async function setTxLink(el, hash) {
 
 function getRegistryAddress() {
   const a = document.getElementById("registryAddress").value.trim();
-  if (!a) throw new Error("Paste VoterRegistry address in Admin section");
+  if (!a) throw new Error("Registry address missing — run deploy so it loads automatically, or paste once in Advanced.");
   return a;
 }
 
 function getFactoryAddress() {
   const a = document.getElementById("factoryAddress").value.trim();
-  if (!a) throw new Error("Paste ElectionFactory address in Admin section");
+  if (!a) throw new Error("Factory address missing — run deploy so it loads automatically.");
   return a;
 }
 
@@ -544,3 +544,25 @@ document.getElementById("loadResults").onclick = async () => {
     setButtonLoading(btn, false, orig);
   }
 };
+
+(async function bootstrapDeployedAddresses() {
+  const cfg = await loadDeployedAddresses();
+  const hint = document.getElementById("deployHint");
+  if (!cfg) {
+    if (hint) {
+      hint.textContent =
+        "No deploy file yet — run npm run deploy:local or npm run deploy:sepolia, then refresh. Addresses appear here automatically.";
+    }
+    return;
+  }
+  const setVal = (id, v) => {
+    const el = document.getElementById(id);
+    if (el && v) el.value = v;
+  };
+  setVal("registryAddress", cfg.registry);
+  setVal("factoryAddress", cfg.factory);
+  setVal("ballotAddress", cfg.ballot);
+  if (hint) {
+    hint.textContent = `Contracts loaded for chain ID ${cfg.chainId}. Use MetaMask on that network, then connect.`;
+  }
+})();

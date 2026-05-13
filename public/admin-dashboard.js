@@ -1,9 +1,12 @@
 const registryAbi = ["function addEligibleVoters(bytes32[] commitments) external"];
 
+const SESSION_KEY = "votechain_admin_session";
+
 let provider;
 let signer;
 let userAddress;
 let toastTimer;
+let deployedCfg;
 
 function showToast(message, type = "info") {
   const toast = document.getElementById("toast");
@@ -17,29 +20,59 @@ function showToast(message, type = "info") {
   toastTimer = setTimeout(() => toast.classList.remove("show"), type === "err" ? 6000 : 4000);
 }
 
-function authHeaders() {
-  const el = document.getElementById("dashToken");
-  const t = (el.value.trim() || sessionStorage.getItem("dashboardToken") || "").trim();
-  if (t) sessionStorage.setItem("dashboardToken", t);
-  const h = { "Content-Type": "application/json" };
-  if (t) h.Authorization = `Bearer ${t}`;
-  return h;
+function readSession() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
-function loadSettings() {
-  const tok = sessionStorage.getItem("dashboardToken");
-  if (tok) document.getElementById("dashToken").value = tok;
-  const reg = sessionStorage.getItem("registryAddressDash") || "";
-  if (reg) document.getElementById("registryAddress").value = reg;
+function writeSession(obj) {
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(obj));
 }
 
-document.getElementById("saveSettings").onclick = () => {
-  const tok = document.getElementById("dashToken").value.trim();
-  const reg = document.getElementById("registryAddress").value.trim();
-  if (tok) sessionStorage.setItem("dashboardToken", tok);
-  if (reg) sessionStorage.setItem("registryAddressDash", reg);
-  showToast("Saved in this browser", "ok");
-};
+function clearSession() {
+  sessionStorage.removeItem(SESSION_KEY);
+}
+
+function sessionStillValid(sess) {
+  if (!sess || !sess.message) return false;
+  const exp = adminSessionExpiresAt(sess.message);
+  return exp > Math.floor(Date.now() / 1000) + 30;
+}
+
+async function ensureSignedSession() {
+  if (!signer || !userAddress) throw new Error("Connect wallet first");
+  if (!deployedCfg || !deployedCfg.registry) throw new Error("Missing deployed-addresses.json — run deploy first");
+
+  let sess = readSession();
+  if (sess && sessionStillValid(sess) && sess.registryAddress?.toLowerCase() === deployedCfg.registry.toLowerCase()) {
+    return sess;
+  }
+
+  const net = await provider.getNetwork();
+  const { message } = buildAdminSessionMessage(deployedCfg.registry, userAddress, net.chainId);
+  showToast("Sign the message in MetaMask…", "pending");
+  const signature = await signer.signMessage(message);
+  sess = { message, signature, registryAddress: deployedCfg.registry };
+  writeSession(sess);
+  showToast("Session saved for ~1 hour", "ok");
+  return sess;
+}
+
+function authBody(extra) {
+  const sess = readSession();
+  if (!sess || !sessionStillValid(sess)) throw new Error("Session expired — click Sign & load again");
+  return {
+    ...extra,
+    registryAddress: sess.registryAddress,
+    message: sess.message,
+    signature: sess.signature
+  };
+}
 
 document.getElementById("connectWallet").onclick = async () => {
   const btn = document.getElementById("connectWallet");
@@ -55,6 +88,7 @@ document.getElementById("connectWallet").onclick = async () => {
     btn.innerHTML = `<span>✅</span> ${userAddress.slice(0, 6)}…${userAddress.slice(-4)}`;
     btn.disabled = false;
     document.getElementById("dashStatus").textContent = `Connected: ${userAddress}`;
+    document.getElementById("btnSignAndLoad").disabled = false;
     showToast("Wallet connected", "ok");
   } catch (e) {
     btn.innerHTML = orig;
@@ -63,11 +97,36 @@ document.getElementById("connectWallet").onclick = async () => {
   }
 };
 
+document.getElementById("btnClearSession").onclick = () => {
+  clearSession();
+  showToast("Signed session cleared", "ok");
+};
+
+document.getElementById("btnSignAndLoad").onclick = async () => {
+  const btn = document.getElementById("btnSignAndLoad");
+  const orig = btn.innerHTML;
+  try {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner"></span> Signing…`;
+    await ensureSignedSession();
+    document.getElementById("registryAddress").value = deployedCfg.registry;
+    await loadTable();
+    document.getElementById("dashStatus").textContent = "Queue loaded.";
+    showToast("Applications loaded", "ok");
+  } catch (e) {
+    showToast(e?.reason || e?.message || String(e), "err");
+    document.getElementById("dashStatus").textContent = e?.message || String(e);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+};
+
 async function apiAction(body) {
   const res = await fetch("/api/admin/application-action", {
     method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify(body)
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(authBody(body))
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.message || res.statusText);
@@ -75,9 +134,16 @@ async function apiAction(body) {
 }
 
 async function loadTable() {
+  const sess = readSession();
+  if (!sess || !sessionStillValid(sess)) {
+    throw new Error("Sign & load first");
+  }
+
   const status = document.getElementById("statusFilter").value;
-  const res = await fetch(`/api/admin/applications?status=${encodeURIComponent(status)}`, {
-    headers: authHeaders()
+  const res = await fetch("/api/admin/applications-list", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(authBody({ status }))
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.message || "Failed to load list");
@@ -146,8 +212,8 @@ async function rejectRow(id) {
 async function approveRow(row) {
   try {
     if (!signer) throw new Error("Connect wallet first");
-    const regAddr = document.getElementById("registryAddress").value.trim();
-    if (!regAddr) throw new Error("Set VoterRegistry address");
+    const regAddr = deployedCfg?.registry || document.getElementById("registryAddress").value.trim();
+    if (!regAddr) throw new Error("No registry");
 
     showToast("Confirm in MetaMask…", "pending");
     const reg = new ethers.Contract(regAddr, registryAbi, signer);
@@ -162,20 +228,19 @@ async function approveRow(row) {
   }
 }
 
-document.getElementById("loadPending").onclick = async () => {
-  try {
-    document.getElementById("dashStatus").textContent = "Loading…";
-    await loadTable();
-    document.getElementById("dashStatus").textContent = "List updated.";
-    showToast("Applications loaded", "ok");
-  } catch (e) {
-    document.getElementById("dashStatus").textContent = e.message;
-    showToast(e.message, "err");
-  }
-};
-
 document.getElementById("statusFilter").onchange = () => {
   loadTable().catch((e) => showToast(e.message, "err"));
 };
 
-loadSettings();
+(async function init() {
+  const hint = document.getElementById("deployHint");
+  deployedCfg = await loadDeployedAddresses();
+  if (!deployedCfg) {
+    if (hint) hint.textContent = "Run npm run deploy:local or deploy:sepolia first — then refresh. No manual addresses.";
+    return;
+  }
+  document.getElementById("registryAddress").value = deployedCfg.registry;
+  if (hint) {
+    hint.textContent = `Registry loaded for chain ${deployedCfg.chainId}. Connect the admin wallet on that network, then Sign & load.`;
+  }
+})();

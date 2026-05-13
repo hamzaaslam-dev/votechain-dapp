@@ -10,3 +10,4 @@ typechain-types/
 *.log
 .DS_Store
 data/applications.json
+public/deployed-addresses.json
