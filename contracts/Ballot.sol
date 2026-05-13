@@ -19,6 +19,7 @@ contract Ballot {
     mapping(bytes32 => bool) public nullifierUsed;
 
     event VoteCast(bytes32 indexed nullifierHash, uint256 indexed proposalId);
+    event VotingStarted(uint64 newStartTime);
 
     modifier onlyAdmin() {
         require(msg.sender == admin, "Only admin");
@@ -26,22 +27,33 @@ contract Ballot {
     }
 
     constructor(
+        address _admin,
         address registryAddress,
         bytes32[] memory proposalNames,
         uint64 _startTime,
         uint64 _endTime
     ) {
+        require(_admin != address(0), "Bad admin");
         require(registryAddress != address(0), "Bad registry");
         require(proposalNames.length > 1, "Need >=2 proposals");
         require(_endTime > _startTime, "Bad time range");
 
-        admin = msg.sender;
+        admin = _admin;
         voterRegistry = IVoterRegistry(registryAddress);
         startTime = _startTime;
         endTime = _endTime;
 
         for (uint256 i = 0; i < proposalNames.length; i++) {
             proposals.push(Proposal({name: proposalNames[i], voteCount: 0}));
+        }
+    }
+
+    /// @notice Admin can open voting immediately if the scheduled start is still in the future.
+    function startVotingNow() external onlyAdmin {
+        require(block.timestamp <= endTime, "Election ended");
+        if (block.timestamp < startTime) {
+            startTime = uint64(block.timestamp);
+            emit VotingStarted(startTime);
         }
     }
 

@@ -97,8 +97,83 @@
             </div>
             <div class="hint-box">
               <span class="hint-icon">💡</span>
-              <span>Copy the address printed during <code>npm run deploy:local</code></span>
+              <span>Paste addresses from <code>npm run deploy:local</code> or <code>npm run deploy:sepolia</code></span>
             </div>
+          </div>
+        </div>
+
+        <!-- Admin — same wallet can manage registry, factory, and each ballot it creates -->
+        <div class="card card-wide" id="card-admin">
+          <div class="card-header">
+            <div class="card-num">ADM</div>
+            <div>
+              <div class="card-title">Admin (wallet)</div>
+              <div class="card-desc">Connect the deployer wallet. Approve MetaMask for each action: add voters, create elections, start voting.</div>
+            </div>
+            <button type="button" id="refreshAdminRole" class="btn btn-ghost" style="margin-left:auto">
+              <span>🔎</span> Check roles
+            </button>
+          </div>
+          <div class="card-body">
+            <div id="adminRoleBanner" class="hint-box" style="margin-bottom:14px">
+              <span class="hint-icon">👛</span>
+              <span id="adminRoleText">Connect wallet, then paste Registry + Factory addresses and click Check roles.</span>
+            </div>
+            <div class="admin-grid">
+              <div>
+                <label class="field-label">VoterRegistry address</label>
+                <div class="input-group">
+                  <span class="input-icon">📒</span>
+                  <input id="registryAddress" class="field-input" placeholder="0x5FbDB2315678afecb367f032d93F642f64180aa3" />
+                </div>
+              </div>
+              <div>
+                <label class="field-label">ElectionFactory address</label>
+                <div class="input-group">
+                  <span class="input-icon">🏭</span>
+                  <input id="factoryAddress" class="field-input" placeholder="Factory from deploy output" />
+                </div>
+              </div>
+            </div>
+
+            <label class="field-label" style="margin-top:14px">Add eligible voter (commitment bytes32)</label>
+            <div class="input-group">
+              <span class="input-icon">➕</span>
+              <input id="adminCommitmentInput" class="field-input" placeholder="0x… or generate from voter section above" />
+            </div>
+            <button type="button" id="adminAddVoterWallet" class="btn btn-primary" style="margin-top:10px">
+              <span>✅</span> Add voter on-chain (Registry)
+            </button>
+
+            <hr class="admin-sep" />
+
+            <label class="field-label">New election — candidate names (comma-separated, max 31 chars each)</label>
+            <div class="input-group">
+              <span class="input-icon">🗂</span>
+              <input id="electionNames" class="field-input" placeholder="Ali, Sara, Bilal" />
+            </div>
+            <div class="admin-grid" style="margin-top:10px">
+              <div>
+                <label class="field-label">Voting starts</label>
+                <input id="electionStart" class="field-input" type="datetime-local" />
+              </div>
+              <div>
+                <label class="field-label">Voting ends</label>
+                <input id="electionEnd" class="field-input" type="datetime-local" />
+              </div>
+            </div>
+            <button type="button" id="adminCreateElection" class="btn btn-primary" style="margin-top:12px">
+              <span>🚀</span> Create election (Factory → new Ballot)
+            </button>
+            <p id="createElectionResult" class="admin-result"></p>
+
+            <hr class="admin-sep" />
+
+            <label class="field-label">Current Ballot — start voting now</label>
+            <p class="admin-hint">If the ballot’s scheduled start is still in the future, this sets start time to now (Ballot admin = wallet that created this election via Factory).</p>
+            <button type="button" id="adminStartVoting" class="btn btn-outline">
+              <span>▶️</span> Start voting now (Ballot)
+            </button>
           </div>
         </div>
 
@@ -153,9 +228,12 @@
                 <span>🔍</span> Check CNIC
               </button>
               <button id="registerCommitment" class="btn btn-primary">
-                <span>🔗</span> Register On-Chain
+                <span>🔗</span> Register (server key)
               </button>
             </div>
+            <button id="registerCommitmentWallet" class="btn btn-outline" style="margin-top:10px;width:100%">
+              <span>🦊</span> Register with my wallet (Registry admin)
+            </button>
             <div id="eligibilityResult" class="status-pill hidden"></div>
           </div>
         </div>
