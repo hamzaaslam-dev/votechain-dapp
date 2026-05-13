@@ -9,3 +9,4 @@ typechain-types/
 .vercel
 *.log
 .DS_Store
+data/applications.json

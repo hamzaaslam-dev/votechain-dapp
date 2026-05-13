@@ -27,6 +27,7 @@
         <span class="nav-badge">Testnet</span>
       </div>
       <div class="nav-right">
+        <a href="admin.html" class="btn btn-ghost nav-dash">Admin dashboard</a>
         <div id="networkBadge" class="net-badge">Not Connected</div>
         <button id="connectWallet" class="btn btn-ghost">
           <span class="btn-icon">🦊</span> Connect Wallet
@@ -213,13 +214,47 @@
           </div>
         </div>
 
+        <!-- Apply — sent to admin dashboard for wallet approval -->
+        <div class="card card-wide" id="card-apply">
+          <div class="card-header">
+            <div class="card-num">02b</div>
+            <div>
+              <div class="card-title">Apply for voter access</div>
+              <div class="card-desc">Submit your details. An admin reviews them on the Admin dashboard and approves your commitment on-chain with their wallet.</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="admin-grid">
+              <div>
+                <label class="field-label">Full name</label>
+                <div class="input-group">
+                  <span class="input-icon">👤</span>
+                  <input id="applyFullName" class="field-input" placeholder="As on CNIC" />
+                </div>
+              </div>
+              <div>
+                <label class="field-label">Phone</label>
+                <div class="input-group">
+                  <span class="input-icon">📱</span>
+                  <input id="applyPhone" class="field-input" placeholder="03xx…" />
+                </div>
+              </div>
+            </div>
+            <p class="admin-hint" style="margin-top:10px">Uses the same CNIC and commitment as in <strong>Voter Identity</strong> above (generate commitment first).</p>
+            <button type="button" id="submitApplication" class="btn btn-primary" style="margin-top:12px;width:100%">
+              <span>📨</span> Submit application to admin
+            </button>
+            <div id="applyResult" class="admin-result" style="margin-top:10px"></div>
+          </div>
+        </div>
+
         <!-- Card 3 — Registration -->
         <div class="card" id="card-register">
           <div class="card-header">
             <div class="card-num">03</div>
             <div>
               <div class="card-title">Eligibility &amp; Registration</div>
-              <div class="card-desc">Verify CNIC then register commitment on-chain</div>
+              <div class="card-desc">Check CNIC. After admin approves your application (dashboard), you can vote — or use direct register if you are the registry admin.</div>
             </div>
           </div>
           <div class="card-body">

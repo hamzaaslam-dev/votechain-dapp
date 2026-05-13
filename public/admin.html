@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VoteChain — Admin dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+  </head>
+  <body>
+    <div class="bg-blobs" aria-hidden="true">
+      <div class="blob blob-1"></div>
+      <div class="blob blob-2"></div>
+      <div class="blob blob-3"></div>
+    </div>
+
+    <nav class="navbar">
+      <div class="nav-brand">
+        <span class="nav-icon">🛡</span>
+        <span class="nav-title">Admin dashboard</span>
+        <span class="nav-badge">Registry</span>
+      </div>
+      <div class="nav-right">
+        <a href="index.html" class="btn btn-ghost nav-dash">← Voter app</a>
+        <button type="button" id="connectWallet" class="btn btn-ghost"><span>🦊</span> Connect wallet</button>
+      </div>
+    </nav>
+
+    <div class="page-wrap" style="padding-top: 24px">
+      <header class="hero" style="padding-top: 24px; padding-bottom: 20px">
+        <h1 class="hero-title" style="font-size: 2rem">Review applications</h1>
+        <p class="hero-sub">Load pending voters, then <strong>Approve</strong> to register their commitment on-chain with MetaMask, or <strong>Reject</strong>.</p>
+      </header>
+
+      <div class="card card-wide">
+        <div class="card-header">
+          <div class="card-num">⚙</div>
+          <div>
+            <div class="card-title">Dashboard access</div>
+            <div class="card-desc">Bearer token must match <code>DASHBOARD_TOKEN</code> in server <code>.env</code> (set a long random string).</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <label class="field-label">Dashboard token</label>
+          <div class="input-group">
+            <span class="input-icon">🔑</span>
+            <input id="dashToken" class="field-input" type="password" placeholder="Paste DASHBOARD_TOKEN" autocomplete="off" />
+          </div>
+          <label class="field-label" style="margin-top: 12px">VoterRegistry contract</label>
+          <div class="input-group">
+            <span class="input-icon">📒</span>
+            <input id="registryAddress" class="field-input" placeholder="0x…" />
+          </div>
+          <div class="admin-grid" style="margin-top: 12px">
+            <button type="button" id="saveSettings" class="btn btn-outline"><span>💾</span> Save in browser</button>
+            <button type="button" id="loadPending" class="btn btn-primary"><span>🔄</span> Load pending</button>
+          </div>
+          <p id="dashStatus" class="admin-hint" style="margin-top: 10px"></p>
+        </div>
+      </div>
+
+      <div class="card card-wide" style="margin-top: 20px">
+        <div class="card-header">
+          <div class="card-num">📋</div>
+          <div>
+            <div class="card-title">Pending applications</div>
+            <div class="card-desc">Name, CNIC, phone, commitment — approve sends <code>addEligibleVoters</code> from your wallet.</div>
+          </div>
+          <select id="statusFilter" class="field-input" style="max-width: 160px; margin-left: auto; padding: 8px 10px">
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+        <div class="card-body" style="overflow-x: auto">
+          <table class="dash-table" id="appsTable">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>CNIC</th>
+                <th>Phone</th>
+                <th>Commitment</th>
+                <th>Submitted</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="appsBody">
+              <tr><td colspan="6" class="dash-empty">Load pending to see rows</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden"><span id="toastIcon">ℹ️</span><span id="toastMsg">-</span></div>
+
+    <script src="admin-dashboard.js"></script>
+  </body>
+</html>

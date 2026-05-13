@@ -6,6 +6,8 @@ This project is a student-friendly blockchain voting app with:
 - On-chain eligibility via voter commitments
 - One-person-one-vote using a nullifier
 - **Admin wallet**: add eligible voters, **create elections** via `ElectionFactory`, **open voting early** with `startVotingNow` on each `Ballot`
+- **Admin dashboard** (`public/admin.html`): lists voter **applications** (name, CNIC, phone, commitment); admin **Approves** with MetaMask (`addEligibleVoters`) or **Rejects** off-chain
+- **Voter application** (`POST /api/apply`): voters submit details after generating a commitment; data is stored under `data/` locally (see `.gitignore`)
 
 ## Architecture
 
@@ -13,9 +15,11 @@ This project is a student-friendly blockchain voting app with:
   - `VoterRegistry.sol`: admin adds eligible voter commitments (`addEligibleVoters`)
   - `Ballot.sol`: election (candidates, schedule, votes); **ballot admin** is the wallet that created that ballot via the factory
   - `ElectionFactory.sol`: factory admin deploys new `Ballot` instances; creator becomes each ballot’s admin
-- `backend/server.js`: CNIC check + optional server-side `add-commitment` (uses `ADMIN_PRIVATE_KEY`); serves static UI from `public/`
+- `backend/server.js`: CNIC check + optional server-side `add-commitment` (uses `ADMIN_PRIVATE_KEY`); voter `POST /api/apply`; admin list/reject/mark-approved; serves static UI from `public/`
+- `lib/applicationStore.js` + `lib/applicationsHandlers.js`: voter applications queue (JSON file `data/applications.json` when writable)
 - `public/`: browser UI (MetaMask for voters and for admin actions)
-- `api/`: Vercel serverless routes (same JSON API as local if you deploy there)
+- `public/admin.html`: admin dashboard (pending applications + wallet approve)
+- `api/`: Vercel serverless routes (same JSON API as local if you deploy there; on Vercel use a real DB for applications in production)
 
 ## Roles (who is “admin”)
 
@@ -75,7 +79,16 @@ npm run deploy:sepolia
 npm run start:api
 ```
 
-Open `http://localhost:3001`.
+Open `http://localhost:3001` (voter) and `http://localhost:3001/admin.html` (admin dashboard).
+
+Set **`DASHBOARD_TOKEN`** in `.env` before using the dashboard in production (otherwise the server allows listing without a token and logs a warning).
+
+### Voter → admin approval flow
+
+1. Voter: identity (CNIC + secret) → **Generate commitment** → **Apply for voter access** (name + phone) → submit.
+2. Admin: open **`/admin.html`**, paste **`DASHBOARD_TOKEN`** and **VoterRegistry** address → **Load pending**.
+3. Admin: for each row, **Approve (wallet)** → MetaMask sends `addEligibleVoters([commitment])`, then the row is marked approved with tx hash; or **Reject** to dismiss without on-chain action.
+4. Voter: can **Cast vote** once the commitment is on-chain and the ballot is open.
 
 ### Admin flow in the UI (wallet)
 

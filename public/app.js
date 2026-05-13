@@ -233,6 +233,36 @@ document.getElementById("generate").onclick = () => {
   }
 };
 
+document.getElementById("submitApplication").onclick = async () => {
+  const btn = document.getElementById("submitApplication");
+  const orig = btn.innerHTML;
+  const out = document.getElementById("applyResult");
+  out.textContent = "";
+
+  try {
+    const fullName = document.getElementById("applyFullName").value.trim();
+    const phone = document.getElementById("applyPhone").value.trim();
+    const { cnic, secret } = getInputs();
+    const commitment = ethers.keccak256(ethers.toUtf8Bytes(`commitment:${cnic}:${secret}`));
+
+    setButtonLoading(btn, true, orig);
+    const res = await fetch("/api/apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fullName, phone, cnic, commitment })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || "Application failed");
+
+    out.textContent = `Submitted. ID: ${data.id}. An admin will review you on the Admin dashboard.`;
+    showToast("Application sent", "ok");
+  } catch (err) {
+    showToast(err.message, "err");
+  } finally {
+    setButtonLoading(btn, false, orig);
+  }
+};
+
 document.getElementById("verifyCnic").onclick = async () => {
   const btn = document.getElementById("verifyCnic");
   const orig = btn.innerHTML;

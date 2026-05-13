@@ -3,6 +3,8 @@ const express = require("express");
 const cors = require("cors");
 const { ethers } = require("ethers");
 
+const applicationsHandlers = require("../lib/applicationsHandlers");
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -21,6 +23,17 @@ const validCnicSet = new Set([
 
 app.get("/api/health", (_, res) => {
   res.json({ ok: true });
+});
+
+app.post("/api/apply", (req, res) => applicationsHandlers.handleApply(req, res));
+
+app.get("/api/admin/applications", (req, res) => applicationsHandlers.handleAdminApplications(req, res));
+
+app.post("/api/admin/application-action", (req, res) => {
+  const action = String(req.body?.action || "").trim();
+  if (action === "reject") return applicationsHandlers.handleAdminReject(req, res);
+  if (action === "mark-approved") return applicationsHandlers.handleAdminMarkApproved(req, res);
+  return res.status(400).json({ ok: false, message: "action must be reject or mark-approved" });
 });
 
 app.post("/api/verify-cnic", (req, res) => {
