@@ -40,16 +40,26 @@ async function sendProgramTx(instruction) {
 }
 
 document.getElementById("connectWallet").onclick = async () => {
+  const btn = document.getElementById("connectWallet");
+  const orig = btn.innerHTML;
   try {
+    btn.disabled = true;
     const phantom = getPhantom();
     const resp = await phantom.connect();
     walletPubkey = new solanaWeb3.PublicKey(resp.publicKey.toString());
+    
+    // Change button text to connected wallet address
+    btn.innerHTML = `<span>✅</span> ${walletPubkey.toBase58().slice(0, 6)}…${walletPubkey.toBase58().slice(-4)}`;
+    btn.disabled = false;
+    
     document.getElementById("walletLine").textContent =
       `Phantom: ${walletPubkey.toBase58()} (not stored in applications)`;
     document.getElementById("networkBadge").textContent = "Devnet";
     document.getElementById("networkBadge").classList.add("connected");
     showToast("Phantom connected", "ok");
   } catch (e) {
+    btn.innerHTML = orig;
+    btn.disabled = false;
     showToast(e.message, "err");
   }
 };

@@ -112,7 +112,7 @@ document.getElementById("connectWallet").onclick = async () => {
     const phantom = getPhantom();
     const resp = await phantom.connect();
     walletPubkey = new solanaWeb3.PublicKey(resp.publicKey.toString());
-    btn.innerHTML = `<span>✅</span> ${walletPubkey.toBase58().slice(0, 6)}…`;
+    btn.innerHTML = `<span>✅</span> ${walletPubkey.toBase58().slice(0, 6)}…${walletPubkey.toBase58().slice(-4)}`;
     btn.disabled = false;
     document.getElementById("dashStatus").textContent = `Phantom: ${walletPubkey.toBase58()}`;
     document.getElementById("btnSignAndLoad").disabled = false;
