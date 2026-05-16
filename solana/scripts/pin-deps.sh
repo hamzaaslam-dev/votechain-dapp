@@ -9,7 +9,7 @@ fi
 cargo update -p blake3 --precise 1.8.2
 cargo update -p constant_time_eq --precise 0.3.1
 cargo update -p proc-macro-crate@3.5.0 --precise 3.2.0 2>/dev/null || true
-cargo update -p borsh@1.6.1 --precise 1.5.5 2>/dev/null || cargo update -p borsh --precise 1.5.5
-cargo update -p indexmap@2.14.0 --precise 2.11.4 2>/dev/null || cargo update -p indexmap --precise 2.11.4
+cargo update -p borsh@1.6.1 --precise 1.5.5 2>/dev/null || true
+cargo update -p indexmap@2.14.0 --precise 2.11.4 2>/dev/null || true
 cargo update -p unicode-segmentation@1.13.2 --precise 1.12.0 2>/dev/null || true
 echo "Cargo.lock pinned. Commit it. Build with: anchor build --no-idl"

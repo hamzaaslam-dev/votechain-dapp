@@ -26,6 +26,16 @@ async function main() {
   const admin = (provider.wallet as anchor.Wallet).payer;
   const ballot = ballotPda(program.programId, admin.publicKey);
 
+  const relayerKeyPath = path.join(__dirname, "../..", ".admin-solana-keypair.json");
+  let relayerPubkey = admin.publicKey; // default fallback
+  if (fs.existsSync(relayerKeyPath)) {
+      const secret = JSON.parse(fs.readFileSync(relayerKeyPath, "utf8"));
+      const keypair = anchor.web3.Keypair.fromSecretKey(new Uint8Array(secret));
+      relayerPubkey = keypair.publicKey;
+  } else {
+      console.warn("No relayer key found at .admin-solana-keypair.json, using admin as relayer.");
+  }
+
   const now = Math.floor(Date.now() / 1000);
   try {
     await program.account.ballot.fetch(ballot);
@@ -33,7 +43,7 @@ async function main() {
   } catch {
     const sig = await program.methods
       .initBallot(new anchor.BN(now - 10), new anchor.BN(now + 86400 * 7), 3)
-      .accounts({ admin: admin.publicKey, ballot } as never)
+      .accounts({ admin: admin.publicKey, relayer: relayerPubkey, ballot } as never)
       .rpc();
     console.log("init_ballot tx:", sig);
   }

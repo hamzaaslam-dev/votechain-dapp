@@ -25,6 +25,7 @@ pub mod solana_votechain {
 
         let b = &mut ctx.accounts.ballot;
         b.admin = ctx.accounts.admin.key();
+        b.relayer = ctx.accounts.relayer.key();
         b.bump = ctx.bumps.ballot;
         b.start_ts = start_ts;
         b.end_ts = end_ts;
@@ -62,15 +63,14 @@ pub mod solana_votechain {
         Ok(())
     }
 
-    /// Cast a vote. No required voter signer: eligibility is commitment-based (same model as EVM Ballot.sol).
-    /// Anyone may pay fees; first valid tx consumes the nullifier.
+    /// Cast a vote via Relayer. The Admin Backend verifies the Blind Signature off-chain
+    /// and then submits the vote to the blockchain.
     pub fn vote(
-        ctx: Context<VoteIx>,
+        ctx: Context<RelayVote>,
         proposal_id: u8,
-        commitment: [u8; 32],
-        nullifier: [u8; 32],
+        voting_token_hash: [u8; 32],
     ) -> Result<()> {
-        require!(nullifier != [0u8; 32], VotechainError::BadNullifier);
+        require!(voting_token_hash != [0u8; 32], VotechainError::BadNullifier);
         let ballot = &mut ctx.accounts.ballot;
         let now = Clock::get()?.unix_timestamp;
         require!(now >= ballot.start_ts, VotechainError::NotStarted);
@@ -80,31 +80,23 @@ pub mod solana_votechain {
             VotechainError::BadProposal
         );
 
-        let n_elig = ballot.eligible_len as usize;
-        let mut eligible = false;
-        for j in 0..n_elig {
-            if ballot.eligible[j] == commitment {
-                eligible = true;
-                break;
-            }
-        }
-        require!(eligible, VotechainError::NotEligible);
-
+        // Prevent double voting
         let n_null = ballot.nullifiers_len as usize;
         for j in 0..n_null {
-            require!(ballot.nullifiers[j] != nullifier, VotechainError::AlreadyVoted);
+            require!(ballot.nullifiers[j] != voting_token_hash, VotechainError::AlreadyVoted);
         }
         require!(n_null < MAX_ELIGIBLE, VotechainError::NullifierTableFull);
 
-        ballot.nullifiers[n_null] = nullifier;
+        ballot.nullifiers[n_null] = voting_token_hash;
         ballot.nullifiers_len += 1;
+        
         let idx = proposal_id as usize;
         ballot.proposal_votes[idx] = ballot.proposal_votes[idx]
             .checked_add(1)
             .ok_or(VotechainError::Overflow)?;
 
         emit!(VoteCast {
-            nullifier,
+            nullifier: voting_token_hash,
             proposal_id: proposal_id as u16,
         });
         Ok(())
@@ -115,6 +107,7 @@ pub mod solana_votechain {
 #[derive(InitSpace)]
 pub struct Ballot {
     pub admin: Pubkey,
+    pub relayer: Pubkey,
     pub bump: u8,
     pub start_ts: i64,
     pub end_ts: i64,
@@ -130,6 +123,8 @@ pub struct Ballot {
 pub struct InitBallot<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
+    /// CHECK: The backend relayer public key
+    pub relayer: UncheckedAccount<'info>,
     #[account(
         init,
         payer = admin,
@@ -139,6 +134,30 @@ pub struct InitBallot<'info> {
     )]
     pub ballot: Account<'info, Ballot>,
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct ManageBallot<'info> {
+    #[account(mut)]
+    pub admin: Signer<'info>,
+    #[account(
+        mut,
+        seeds = [b"ballot", admin.key().as_ref()],
+        bump = ballot.bump,
+        has_one = admin
+    )]
+    pub ballot: Account<'info, Ballot>,
+}
+
+#[derive(Accounts)]
+pub struct RelayVote<'info> {
+    #[account(mut)]
+    pub relayer: Signer<'info>,
+    #[account(
+        mut,
+        has_one = relayer
+    )]
+    pub ballot: Account<'info, Ballot>,
 }
 
 #[derive(Accounts)]

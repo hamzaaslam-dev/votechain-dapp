@@ -1,8 +1,13 @@
-/* global solanaWeb3 */
+/* global solanaWeb3, BlindSignature */
 let walletPubkey = null;
-let identity = null;
 let deployed = null;
 let programId = null;
+
+let adminE = null;
+let adminN = null;
+let votingToken = localStorage.getItem('votingToken') || null;
+let blindingR = localStorage.getItem('blindingR') ? BigInt(localStorage.getItem('blindingR')) : null;
+let signedToken = localStorage.getItem('signedToken') || null;
 
 function showToast(msg, type = "info") {
   const toast = document.getElementById("toast");
@@ -51,18 +56,15 @@ document.getElementById("connectWallet").onclick = async () => {
 
 document.getElementById("btnSignIdentity").onclick = async () => {
   try {
-    const phantom = getPhantom();
-    if (!walletPubkey) await document.getElementById("connectWallet").onclick();
-    const signed = await phantom.signMessage(SOLANA_VOTE_SIGN_MESSAGE);
-    const sig = signed.signature;
-    const commitment = await commitmentFromSignature(sig);
-    const nullifier = await nullifierFromSignature(sig);
-    const commitmentHex = bytesToHex32(commitment);
-    identity = { commitment, nullifier, commitmentHex };
-    document.getElementById("commitmentHex").textContent = commitmentHex;
-    document.getElementById("nullifierHex").textContent = bytesToHex32(nullifier);
+    const array = new Uint8Array(32);
+    window.crypto.getRandomValues(array);
+    votingToken = Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
+    localStorage.setItem('votingToken', votingToken);
+    
+    document.getElementById("commitmentHex").textContent = "Generated locally: " + votingToken.slice(0,10) + "...";
+    document.getElementById("nullifierHex").textContent = "N/A (Blind Signatures)";
     document.getElementById("identityBox").classList.remove("hidden");
-    showToast("Voting keys derived", "ok");
+    showToast("Voting token generated locally", "ok");
   } catch (e) {
     showToast(e.message, "err");
   }
@@ -89,11 +91,19 @@ document.getElementById("btnVerifyCnic").onclick = async () => {
 
 document.getElementById("btnApply").onclick = async () => {
   try {
-    if (!identity) throw new Error("Sign to derive keys first");
+    if (!votingToken) throw new Error("Generate token first");
+    if (!adminE || !adminN) throw new Error("Admin public key not loaded yet");
+
     const fullName = document.getElementById("applyFullName").value.trim();
     const phone = document.getElementById("applyPhone").value.trim();
     const cnic = document.getElementById("applyCnic").value.trim();
     if (!/^\d{13}$/.test(cnic)) throw new Error("CNIC must be 13 digits");
+
+    const { blinded, r } = await BlindSignature.blind(votingToken, adminN, adminE);
+    blindingR = r;
+    localStorage.setItem('blindingR', blindingR.toString());
+    localStorage.setItem('applyCnic', cnic);
+
     const res = await fetch("/api/apply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -101,14 +111,41 @@ document.getElementById("btnApply").onclick = async () => {
         fullName,
         phone,
         cnic,
-        commitment: identity.commitmentHex
+        blindedToken: blinded.toString()
       })
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.message || "Apply failed");
     document.getElementById("applyResult").textContent =
-      `Submitted (${data.id}). Admin will add your commitment on-chain.`;
+      `Submitted (${data.id}). Admin will review your application.`;
     showToast("Application sent", "ok");
+  } catch (e) {
+    showToast(e.message, "err");
+  }
+};
+
+document.getElementById("btnCheckStatus") = document.getElementById("btnCheckStatus") || document.createElement("button"); // Add dynamic button later in HTML
+document.getElementById("btnCheckStatus").onclick = async () => {
+  try {
+    const cnic = localStorage.getItem('applyCnic') || document.getElementById("applyCnic").value.trim();
+    if (!cnic) throw new Error("Enter CNIC to check status");
+
+    const res = await fetch("/api/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cnic })
+    });
+    const data = await res.json();
+    if (data.status === "approved" && data.signedToken) {
+      if (!blindingR) throw new Error("Blinding factor R not found in local storage");
+      const unblinded = BlindSignature.unblind(BigInt(data.signedToken), blindingR, adminN);
+      signedToken = unblinded.toString();
+      localStorage.setItem('signedToken', signedToken);
+      showToast("Token signed and unblinded successfully! You can vote now.", "ok");
+      document.getElementById("applyResult").textContent = "Approved and Signed! Ready to Vote.";
+    } else {
+      showToast(`Status: ${data.status}`, "info");
+    }
   } catch (e) {
     showToast(e.message, "err");
   }
@@ -116,32 +153,41 @@ document.getElementById("btnApply").onclick = async () => {
 
 document.getElementById("btnVote").onclick = async () => {
   try {
-    if (!identity) throw new Error("Sign to derive keys first");
-    if (!programId || !deployed?.ballot) throw new Error("Deploy config missing — see deploy hint");
-    const ballotPk = new solanaWeb3.PublicKey(deployed.ballot);
+    if (!votingToken || !signedToken) throw new Error("You must apply and be approved to get a signed token first.");
     const proposalId = Number(document.getElementById("proposalId").value || 0);
-    const data = buildIxData("vote", () => {
-      const buf = new Uint8Array(1 + 32 + 32);
-      writeU8(buf, 0, proposalId);
-      writeBytes32(buf, 1, identity.commitment);
-      writeBytes32(buf, 33, identity.nullifier);
-      return buf;
+    
+    showToast("Submitting vote gaslessly...", "pending");
+    const res = await fetch("/api/relay-vote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        votingToken,
+        signature: signedToken,
+        proposalId
+      })
     });
-    const ix = new solanaWeb3.TransactionInstruction({
-      keys: [{ pubkey: ballotPk, isSigner: false, isWritable: true }],
-      programId,
-      data
-    });
-    showToast("Confirm in Phantom…", "pending");
-    const sig = await sendProgramTx(ix);
-    document.getElementById("voteResult").textContent = `Vote: ${sig}`;
-    showToast("Vote submitted", "ok");
+    
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Vote failed");
+    
+    document.getElementById("voteResult").textContent = `Vote TxId: ${data.txId}`;
+    showToast("Vote submitted to Solana!", "ok");
   } catch (e) {
     showToast(e.message, "err");
   }
 };
 
 (async function init() {
+  try {
+    const res = await fetch("/api/public-key");
+    const data = await res.json();
+    adminE = BigInt(data.E);
+    adminN = BigInt(data.N);
+    console.log("Loaded Admin Public Key");
+  } catch (e) {
+    console.error("Failed to load admin key", e);
+  }
+
   deployed = await loadDeployedAddresses();
   const hint = document.getElementById("deployHint");
   if (!deployed?.programId) {

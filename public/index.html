@@ -97,6 +97,9 @@
               Submit application
             </button>
             <p id="applyResult" class="admin-result"></p>
+            <button type="button" id="btnCheckStatus" class="btn btn-outline" style="margin-top: 10px; width: 100%">
+              Check Approval Status
+            </button>
           </div>
         </div>
 
@@ -112,7 +115,7 @@
             <label class="field-label">Proposal ID (0–2)</label>
             <input id="proposalId" class="field-input" type="number" value="0" min="0" max="7" />
             <button type="button" id="btnVote" class="btn btn-vote" style="margin-top: 12px; width: 100%">
-              Cast vote
+              Cast Vote (Gasless)
             </button>
             <p id="voteResult" class="admin-result"></p>
           </div>
@@ -124,6 +127,7 @@
 
     <footer class="footer">VoteChain · Solana devnet · Phantom</footer>
 
+    <script src="blindSignature.js"></script>
     <script src="solana-identity.js"></script>
     <script src="shared-config.js"></script>
     <script src="app.js"></script>

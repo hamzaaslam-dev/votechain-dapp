@@ -13,3 +13,5 @@ data/applications.json
 public/deployed-addresses.json
 public/solana-deployed.json
 solana/target/
+.admin-solana-keypair.json
+.admin-rsa-key.json
