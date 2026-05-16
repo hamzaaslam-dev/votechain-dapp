@@ -1,0 +1,347 @@
+{
+  "address": "FkbGQ4md6ab3JtNuQQYaaWMHZLQou3oKaawKFdqzXkXk",
+  "metadata": {
+    "name": "solana_votechain",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
+  "instructions": [
+    {
+      "name": "init_ballot",
+      "discriminator": [
+        132,
+        244,
+        135,
+        124,
+        27,
+        222,
+        231,
+        0
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "ballot",
+          "writable": true
+        },
+        {
+          "name": "system_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "start_ts",
+          "type": "i64"
+        },
+        {
+          "name": "end_ts",
+          "type": "i64"
+        },
+        {
+          "name": "proposal_count",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "add_eligible",
+      "discriminator": [
+        181,
+        45,
+        41,
+        132,
+        148,
+        165,
+        2,
+        11
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "ballot",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "commitment",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "start_voting_now",
+      "discriminator": [
+        175,
+        170,
+        11,
+        0,
+        34,
+        172,
+        44,
+        47
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "ballot",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "vote",
+      "discriminator": [
+        227,
+        110,
+        155,
+        23,
+        136,
+        126,
+        172,
+        25
+      ],
+      "accounts": [
+        {
+          "name": "ballot",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "proposal_id",
+          "type": "u8"
+        },
+        {
+          "name": "commitment",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "nullifier",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Ballot",
+      "discriminator": [
+        3,
+        232,
+        121,
+        204,
+        232,
+        137,
+        138,
+        164
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "VoteCast",
+      "discriminator": [
+        206,
+        34,
+        123,
+        78,
+        149,
+        61,
+        219,
+        159
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "BadProposalCount",
+      "msg": "Need 2..=8 proposals"
+    },
+    {
+      "code": 6001,
+      "name": "BadTimes",
+      "msg": "end_ts must be after start_ts"
+    },
+    {
+      "code": 6002,
+      "name": "BadCommitment",
+      "msg": "Invalid commitment"
+    },
+    {
+      "code": 6003,
+      "name": "RegistryFull",
+      "msg": "Registry full"
+    },
+    {
+      "code": 6004,
+      "name": "DuplicateEligible",
+      "msg": "Commitment already eligible"
+    },
+    {
+      "code": 6005,
+      "name": "NotStarted",
+      "msg": "Voting not started"
+    },
+    {
+      "code": 6006,
+      "name": "Ended",
+      "msg": "Voting ended"
+    },
+    {
+      "code": 6007,
+      "name": "BadProposal",
+      "msg": "Invalid proposal"
+    },
+    {
+      "code": 6008,
+      "name": "NotEligible",
+      "msg": "Commitment not eligible"
+    },
+    {
+      "code": 6009,
+      "name": "AlreadyVoted",
+      "msg": "Nullifier already used"
+    },
+    {
+      "code": 6010,
+      "name": "NullifierTableFull",
+      "msg": "Nullifier table full"
+    },
+    {
+      "code": 6011,
+      "name": "BadNullifier",
+      "msg": "Invalid nullifier"
+    },
+    {
+      "code": 6012,
+      "name": "Overflow",
+      "msg": "Vote count overflow"
+    }
+  ],
+  "types": [
+    {
+      "name": "Ballot",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "start_ts",
+            "type": "i64"
+          },
+          {
+            "name": "end_ts",
+            "type": "i64"
+          },
+          {
+            "name": "proposal_count",
+            "type": "u8"
+          },
+          {
+            "name": "proposal_votes",
+            "type": {
+              "array": [
+                "u64",
+                8
+              ]
+            }
+          },
+          {
+            "name": "eligible_len",
+            "type": "u16"
+          },
+          {
+            "name": "eligible",
+            "type": {
+              "array": [
+                {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                8
+              ]
+            }
+          },
+          {
+            "name": "nullifiers_len",
+            "type": "u16"
+          },
+          {
+            "name": "nullifiers",
+            "type": {
+              "array": [
+                {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                8
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "VoteCast",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "nullifier",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "proposal_id",
+            "type": "u16"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,26 +1,19 @@
 {
-  "name": "anonymous-voting-dapp",
-  "version": "1.0.0",
+  "name": "votechain-solana",
+  "version": "2.0.0",
   "private": true,
-  "description": "CNIC-verified, privacy-preserving voting dApp starter for Ethereum testnet.",
+  "description": "CNIC-verified voting on Solana devnet (Phantom).",
   "scripts": {
-    "compile": "hardhat compile",
-    "test": "hardhat test",
-    "node": "hardhat node",
-    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
-    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
-    "start:api": "node backend/server.js"
+    "start:api": "node backend/server.js",
+    "solana:build": "cd solana && ./scripts/pin-deps.sh && anchor build --no-idl && cp idl/solana_votechain.json ../public/solana_votechain.json",
+    "solana:test": "cd solana && anchor build --no-idl && anchor test --skip-build"
   },
   "dependencies": {
+    "@solana/web3.js": "^1.95.4",
+    "bs58": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "ethers": "^6.13.2",
-    "express": "^4.19.2"
-  },
-  "devDependencies": {
-    "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
-    "@nomicfoundation/hardhat-ethers": "^3.0.8",
-    "chai": "^4.5.0",
-    "hardhat": "^2.22.10"
+    "express": "^4.19.2",
+    "tweetnacl": "^1.0.3"
   }
 }

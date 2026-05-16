@@ -1,114 +1,44 @@
-# Anonymous Voting dApp (Testnet Starter)
+# VoteChain — Solana voting (Phantom)
 
-This project is a student-friendly blockchain voting app with:
+Solana devnet voting with **Phantom** only. No MetaMask, no Ethereum.
 
-- CNIC verification in backend (demo allowlist)
-- On-chain eligibility via voter commitments
-- One-person-one-vote using a nullifier
-- **Admin wallet**: add eligible voters, **create elections** via `ElectionFactory`, **open voting early** with `startVotingNow` on each `Ballot`
-- **Admin dashboard** (`public/admin.html`): lists voter **applications** (name, CNIC, phone, commitment); admin **Approves** with MetaMask (`addEligibleVoters`) or **Rejects** off-chain
-- **Voter application** (`POST /api/apply`): voters submit details after generating a commitment; data is stored under `data/` locally (see `.gitignore`)
+- **Voter** (`/`): connect Phantom → sign for commitment/nullifier → apply (CNIC stored, wallet not stored) → vote after admin adds commitment
+- **Admin** (`/admin.html`): ballot admin signs session → approve with `add_eligible` on-chain
+- **Program**: `solana/programs/solana-votechain` (Anchor)
 
-## Architecture
-
-- `contracts/`
-  - `VoterRegistry.sol`: admin adds eligible voter commitments (`addEligibleVoters`)
-  - `Ballot.sol`: election (candidates, schedule, votes); **ballot admin** is the wallet that created that ballot via the factory
-  - `ElectionFactory.sol`: factory admin deploys new `Ballot` instances; creator becomes each ballot’s admin
-- `backend/server.js`: CNIC check + optional server-side `add-commitment` (uses `ADMIN_PRIVATE_KEY`); voter `POST /api/apply`; admin list/reject/mark-approved; serves static UI from `public/`
-- `lib/applicationStore.js` + `lib/applicationsHandlers.js`: voter applications queue (JSON file `data/applications.json` when writable)
-- `public/`: browser UI (MetaMask for voters and for admin actions)
-- `public/admin.html`: admin dashboard (pending applications + wallet approve)
-- `api/`: Vercel serverless (`/api/apply`, `/api/admin/applications-list`, `/api/admin/application-action`). Admin APIs require a **wallet-signed session** in the JSON body (same format as local).
-
-## Roles (who is “admin”)
-
-| Contract | Admin | What they do |
-|----------|--------|----------------|
-| `VoterRegistry` | deployer of registry | Add eligibility via `addEligibleVoters` (only admin) |
-| `ElectionFactory` | deployer of factory | Call `createElection` → new `Ballot`; **caller** becomes that ballot’s `admin` |
-| `Ballot` | address passed in constructor | `startVotingNow()` if voting was scheduled for later |
-
-**Default deploy** (`scripts/deploy.js`): one wallet deploys Registry + Factory and creates one sample Ballot. That wallet is **registry admin**, **factory admin**, and **admin of the sample Ballot** (because it called `createElection`).
-
-## Quick Start
-
-1. Install dependencies
+## Quick start
 
 ```bash
 npm install
-```
-
-2. Copy env file
-
-```bash
-cp .env.example .env
-```
-
-3. Compile contracts
-
-```bash
-npm run compile
-```
-
-4. Local chain (optional)
-
-```bash
-npm run node
-```
-
-In another terminal:
-
-```bash
-npm run deploy:local
-```
-
-After deploy, refresh the app — **contract addresses load from `public/deployed-addresses.json`** (created by the deploy script). Ensure MetaMask uses the same **chain ID** as in that file.
-
-5. Testnet deploy (Sepolia)
-
-Fill `.env` with `SEPOLIA_RPC_URL` and `DEPLOYER_PRIVATE_KEY`, then:
-
-```bash
-npm run deploy:sepolia
-```
-
-6. Run app locally
-
-```bash
 npm run start:api
+# → http://localhost:3001
 ```
 
-Open `http://localhost:3001` (voter) and `http://localhost:3001/admin.html` (admin dashboard).
+### Solana deploy (devnet)
 
-Set **`SEPOLIA_RPC_URL`** or **`RPC_URL`** in `.env` to the same chain MetaMask uses (defaults to `http://127.0.0.1:8545` for local). The server needs this to verify your **wallet signature** against on-chain `VoterRegistry.admin()` — no dashboard password.
+```bash
+cd solana
+yarn install
+./scripts/pin-deps.sh
+anchor build --no-idl
+solana config set --url devnet
+solana airdrop 2
+anchor deploy --provider.cluster devnet
+npx ts-node scripts/deploy-devnet.ts
+cp target/deployed-devnet.json ../public/solana-deployed.json
+cp idl/solana_votechain.json ../public/solana_votechain.json
+```
 
-### Voter → admin approval flow
+Refresh the site. Use **Phantom on Devnet**.
 
-1. **Deploy** once — `public/deployed-addresses.json` is written automatically (gitignored). Refresh the site: **registry, factory, and ballot addresses load by themselves** (no copy/paste).
-2. Voter: CNIC + secret → **Generate commitment** → **Apply for voter access** (name + phone) → submit.
-3. Admin: open **`/admin.html`**, connect **registry admin** wallet → **Sign & load applications** (one MetaMask message, valid ~1 hour) → table appears.
-4. Admin: **Approve (wallet)** per row — MetaMask sends `addEligibleVoters`; **Reject** only updates the list.
-5. Voter: **Cast vote** when the ballot is open.
+### Demo CNICs
 
-### Admin flow in the UI (wallet)
+`1111111111111`, `2222222222222`, `3333333333333`
 
-1. Connect MetaMask with the **deployer** account (or whichever account is factory + registry admin).
-2. Paste **VoterRegistry** and **ElectionFactory** addresses → **Check roles**.
-3. **Add voter**: paste a commitment `bytes32` (or generate from CNIC+secret in the voter section) → **Add voter on-chain (Registry)** — confirm in MetaMask.
-4. **Create election**: comma-separated names, start/end datetime → **Create election** — confirm in MetaMask; new **Ballot** address is filled into Config.
-5. **Start voting now** (optional): if the ballot’s start time is still in the future, click **Start voting now** — Ballot admin only (the wallet that created that ballot).
+## Privacy
 
-Voters can **Register with my wallet** if their wallet is the registry admin, or use **Register (server key)** if you configured `ADMIN_PRIVATE_KEY` on the server.
+Applications store **CNIC + commitment**. Admin who has both can link votes unless you add ZK (Semaphore/MACI). Wallet address is **not** stored in applications.
 
-## How anonymity works here
+## Legacy
 
-- CNIC is checked off-chain.
-- Frontend makes `commitment = hash(cnic + secret)` locally.
-- Contract only sees commitment + nullifier, not CNIC or name.
-- Nullifier can be used once, preventing double vote.
-
-## Project limitation
-
-This starter is privacy-preserving pseudonymity, not full zero-knowledge anonymity.
-For stronger anonymity, upgrade to Semaphore/MACI in future versions.
+`contracts/` and Hardhat files remain for reference but are not used by the web app.

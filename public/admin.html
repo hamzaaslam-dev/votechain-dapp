@@ -3,29 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>VoteChain — Admin dashboard</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <title>VoteChain — Admin (Solana)</title>
     <link rel="stylesheet" href="style.css" />
-    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+    <script src="https://unpkg.com/@solana/web3.js@1.95.4/lib/index.iife.min.js"></script>
   </head>
   <body>
-    <div class="bg-blobs" aria-hidden="true">
-      <div class="blob blob-1"></div>
-      <div class="blob blob-2"></div>
-      <div class="blob blob-3"></div>
-    </div>
-
     <nav class="navbar">
       <div class="nav-brand">
         <span class="nav-icon">🛡</span>
         <span class="nav-title">Admin dashboard</span>
-        <span class="nav-badge">Wallet only</span>
+        <span class="nav-badge">Phantom · Devnet</span>
       </div>
       <div class="nav-right">
         <a href="index.html" class="btn btn-ghost nav-dash">← Voter app</a>
-        <button type="button" id="connectWallet" class="btn btn-ghost"><span>🦊</span> Connect wallet</button>
+        <button type="button" id="connectWallet" class="btn btn-ghost"><span>◎</span> Connect Phantom</button>
       </div>
     </nav>
 
@@ -33,7 +24,7 @@
       <header class="hero" style="padding-top: 24px; padding-bottom: 20px">
         <h1 class="hero-title" style="font-size: 2rem">Approve voters</h1>
         <p class="hero-sub">
-          No passwords or copied addresses. Connect the <strong>registry admin</strong> wallet, sign once to open the queue, then approve each row with MetaMask.
+          Connect the <strong>ballot admin</strong> wallet in Phantom (Devnet), sign once to open the queue, then approve with <code>add_eligible</code>.
         </p>
         <p id="deployHint" class="admin-hint" style="max-width: 640px; margin: 12px auto 0"></p>
       </header>
@@ -43,18 +34,17 @@
           <div class="card-num">1</div>
           <div>
             <div class="card-title">Sign in</div>
-            <div class="card-desc">Uses the same <code>deployed-addresses.json</code> as the voter app. Your signature proves you are on-chain <code>VoterRegistry.admin()</code>.</div>
+            <div class="card-desc">Session proves you are on-chain <code>Ballot.admin</code> for this deployment.</div>
           </div>
         </div>
         <div class="card-body">
           <div class="admin-grid">
             <button type="button" id="btnSignAndLoad" class="btn btn-primary" disabled>
-              <span>✍️</span> Sign &amp; load applications
+              Sign &amp; load applications
             </button>
-            <button type="button" id="btnClearSession" class="btn btn-outline"><span>🚪</span> Clear session</button>
+            <button type="button" id="btnClearSession" class="btn btn-outline">Clear session</button>
           </div>
           <p id="dashStatus" class="admin-hint" style="margin-top: 12px"></p>
-          <input type="hidden" id="registryAddress" />
         </div>
       </div>
 
@@ -63,7 +53,7 @@
           <div class="card-num">2</div>
           <div>
             <div class="card-title">Applications</div>
-            <div class="card-desc">Approve registers the commitment on-chain from your wallet. Reject only updates this list.</div>
+            <div class="card-desc">Approve runs <code>add_eligible</code> on Solana; reject is off-chain only.</div>
           </div>
           <select id="statusFilter" class="field-input" style="max-width: 160px; margin-left: auto; padding: 8px 10px">
             <option value="pending">Pending</option>
@@ -73,7 +63,7 @@
           </select>
         </div>
         <div class="card-body" style="overflow-x: auto">
-          <table class="dash-table" id="appsTable">
+          <table class="dash-table">
             <thead>
               <tr>
                 <th>Name</th>
@@ -86,7 +76,7 @@
             </thead>
             <tbody id="appsBody">
               <tr>
-                <td colspan="6" class="dash-empty">Connect wallet, then sign &amp; load</td>
+                <td colspan="6" class="dash-empty">Connect Phantom, then sign &amp; load</td>
               </tr>
             </tbody>
           </table>

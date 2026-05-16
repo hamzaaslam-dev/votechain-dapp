@@ -1,12 +1,10 @@
-const registryAbi = ["function addEligibleVoters(bytes32[] commitments) external"];
-
+/* global solanaWeb3 */
 const SESSION_KEY = "votechain_admin_session";
 
-let provider;
-let signer;
-let userAddress;
-let toastTimer;
-let deployedCfg;
+let walletPubkey = null;
+let deployedCfg = null;
+let programId = null;
+let toastTimer = null;
 
 function showToast(message, type = "info") {
   const toast = document.getElementById("toast");
@@ -23,8 +21,7 @@ function showToast(message, type = "info") {
 function readSession() {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
+    return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
@@ -39,36 +36,69 @@ function clearSession() {
 }
 
 function sessionStillValid(sess) {
-  if (!sess || !sess.message) return false;
-  const exp = adminSessionExpiresAt(sess.message);
-  return exp > Math.floor(Date.now() / 1000) + 30;
+  if (!sess?.message) return false;
+  return adminSessionExpiresAt(sess.message) > Math.floor(Date.now() / 1000) + 30;
+}
+
+function writeBytes32(buf, off, arr) {
+  for (let i = 0; i < 32; i++) buf[off + i] = arr[i];
+}
+
+function hexToBytes32Array(hex) {
+  const h = hex.startsWith("0x") ? hex.slice(2) : hex;
+  const out = [];
+  for (let i = 0; i < 64; i += 2) out.push(parseInt(h.slice(i, i + 2), 16));
+  return out;
+}
+
+async function sendProgramTx(instruction) {
+  const phantom = getPhantom();
+  const connection = solanaConnection();
+  const tx = new solanaWeb3.Transaction().add(instruction);
+  tx.feePayer = walletPubkey;
+  tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+  const signed = await phantom.signTransaction(tx);
+  const sig = await connection.sendRawTransaction(signed.serialize());
+  await connection.confirmTransaction(sig, "confirmed");
+  return sig;
 }
 
 async function ensureSignedSession() {
-  if (!signer || !userAddress) throw new Error("Connect wallet first");
-  if (!deployedCfg || !deployedCfg.registry) throw new Error("Missing deployed-addresses.json — run deploy first");
+  if (!walletPubkey) throw new Error("Connect Phantom first");
+  if (!deployedCfg?.ballot) throw new Error("Missing solana-deployed.json");
 
   let sess = readSession();
-  if (sess && sessionStillValid(sess) && sess.registryAddress?.toLowerCase() === deployedCfg.registry.toLowerCase()) {
+  if (
+    sess &&
+    sessionStillValid(sess) &&
+    sess.ballotAddress === deployedCfg.ballot &&
+    sess.wallet === walletPubkey.toBase58()
+  ) {
     return sess;
   }
 
-  const net = await provider.getNetwork();
-  const { message } = buildAdminSessionMessage(deployedCfg.registry, userAddress, net.chainId);
-  showToast("Sign the message in MetaMask…", "pending");
-  const signature = await signer.signMessage(message);
-  sess = { message, signature, registryAddress: deployedCfg.registry };
+  const { message } = buildAdminSessionMessage(deployedCfg.ballot, walletPubkey.toBase58());
+  showToast("Sign admin session in Phantom…", "pending");
+  const phantom = getPhantom();
+  const signed = await phantom.signMessage(new TextEncoder().encode(message));
+  sess = {
+    message,
+    signature: signatureToBase64(signed.signature),
+    wallet: walletPubkey.toBase58(),
+    ballotAddress: deployedCfg.ballot
+  };
   writeSession(sess);
-  showToast("Session saved for ~1 hour", "ok");
+  showToast("Session saved (~1 hour)", "ok");
   return sess;
 }
 
 function authBody(extra) {
   const sess = readSession();
-  if (!sess || !sessionStillValid(sess)) throw new Error("Session expired — click Sign & load again");
+  if (!sess || !sessionStillValid(sess)) throw new Error("Session expired — Sign & load again");
   return {
     ...extra,
-    registryAddress: sess.registryAddress,
+    ballotAddress: sess.ballotAddress,
+    wallet: sess.wallet,
     message: sess.message,
     signature: sess.signature
   };
@@ -78,18 +108,15 @@ document.getElementById("connectWallet").onclick = async () => {
   const btn = document.getElementById("connectWallet");
   const orig = btn.innerHTML;
   try {
-    if (!window.ethereum) throw new Error("Install MetaMask");
     btn.disabled = true;
-    btn.innerHTML = `<span class="spinner"></span>`;
-    provider = new ethers.BrowserProvider(window.ethereum);
-    await provider.send("eth_requestAccounts", []);
-    signer = await provider.getSigner();
-    userAddress = await signer.getAddress();
-    btn.innerHTML = `<span>✅</span> ${userAddress.slice(0, 6)}…${userAddress.slice(-4)}`;
+    const phantom = getPhantom();
+    const resp = await phantom.connect();
+    walletPubkey = new solanaWeb3.PublicKey(resp.publicKey.toString());
+    btn.innerHTML = `<span>✅</span> ${walletPubkey.toBase58().slice(0, 6)}…`;
     btn.disabled = false;
-    document.getElementById("dashStatus").textContent = `Connected: ${userAddress}`;
+    document.getElementById("dashStatus").textContent = `Phantom: ${walletPubkey.toBase58()}`;
     document.getElementById("btnSignAndLoad").disabled = false;
-    showToast("Wallet connected", "ok");
+    showToast("Phantom connected", "ok");
   } catch (e) {
     btn.innerHTML = orig;
     btn.disabled = false;
@@ -99,7 +126,7 @@ document.getElementById("connectWallet").onclick = async () => {
 
 document.getElementById("btnClearSession").onclick = () => {
   clearSession();
-  showToast("Signed session cleared", "ok");
+  showToast("Session cleared", "ok");
 };
 
 document.getElementById("btnSignAndLoad").onclick = async () => {
@@ -109,13 +136,12 @@ document.getElementById("btnSignAndLoad").onclick = async () => {
     btn.disabled = true;
     btn.innerHTML = `<span class="spinner"></span> Signing…`;
     await ensureSignedSession();
-    document.getElementById("registryAddress").value = deployedCfg.registry;
     await loadTable();
     document.getElementById("dashStatus").textContent = "Queue loaded.";
     showToast("Applications loaded", "ok");
   } catch (e) {
-    showToast(e?.reason || e?.message || String(e), "err");
-    document.getElementById("dashStatus").textContent = e?.message || String(e);
+    showToast(e.message, "err");
+    document.getElementById("dashStatus").textContent = e.message;
   } finally {
     btn.disabled = false;
     btn.innerHTML = orig;
@@ -134,11 +160,6 @@ async function apiAction(body) {
 }
 
 async function loadTable() {
-  const sess = readSession();
-  if (!sess || !sessionStillValid(sess)) {
-    throw new Error("Sign & load first");
-  }
-
   const status = document.getElementById("statusFilter").value;
   const res = await fetch("/api/admin/applications-list", {
     method: "POST",
@@ -163,7 +184,7 @@ async function loadTable() {
     const isPending = row.status === "pending";
     const extra =
       row.status === "approved" && row.approvedTx
-        ? `<div class="dash-meta">Tx: ${row.approvedTx.slice(0, 14)}…</div>`
+        ? `<div class="dash-meta">Tx: ${escapeHtml(row.approvedTx.slice(0, 16))}…</div>`
         : "";
 
     tr.innerHTML = `
@@ -178,7 +199,7 @@ async function loadTable() {
     if (isPending) {
       const approve = document.createElement("button");
       approve.className = "btn btn-primary btn-sm";
-      approve.textContent = "Approve (wallet)";
+      approve.textContent = "Approve (Phantom)";
       approve.onclick = () => approveRow(row);
       const reject = document.createElement("button");
       reject.className = "btn btn-outline btn-sm";
@@ -211,20 +232,29 @@ async function rejectRow(id) {
 
 async function approveRow(row) {
   try {
-    if (!signer) throw new Error("Connect wallet first");
-    const regAddr = deployedCfg?.registry || document.getElementById("registryAddress").value.trim();
-    if (!regAddr) throw new Error("No registry");
-
-    showToast("Confirm in MetaMask…", "pending");
-    const reg = new ethers.Contract(regAddr, registryAbi, signer);
-    const tx = await reg.addEligibleVoters([row.commitment]);
-    await tx.wait();
-
-    await apiAction({ action: "mark-approved", id: row.id, approvedTx: tx.hash });
+    if (!walletPubkey || !programId) throw new Error("Connect Phantom and load deploy config");
+    const commitment = hexToBytes32Array(row.commitment);
+    const ballotPk = new solanaWeb3.PublicKey(deployedCfg.ballot);
+    const data = buildIxData("add_eligible", () => {
+      const buf = new Uint8Array(32);
+      writeBytes32(buf, 0, commitment);
+      return buf;
+    });
+    const ix = new solanaWeb3.TransactionInstruction({
+      keys: [
+        { pubkey: walletPubkey, isSigner: true, isWritable: true },
+        { pubkey: ballotPk, isSigner: false, isWritable: true }
+      ],
+      programId,
+      data
+    });
+    showToast("Confirm add_eligible in Phantom…", "pending");
+    const sig = await sendProgramTx(ix);
+    await apiAction({ action: "mark-approved", id: row.id, approvedTx: sig });
     showToast("Approved on-chain", "ok");
     await loadTable();
   } catch (e) {
-    showToast(e?.reason || e?.message || String(e), "err");
+    showToast(e.message, "err");
   }
 }
 
@@ -235,12 +265,12 @@ document.getElementById("statusFilter").onchange = () => {
 (async function init() {
   const hint = document.getElementById("deployHint");
   deployedCfg = await loadDeployedAddresses();
-  if (!deployedCfg) {
-    if (hint) hint.textContent = "Run npm run deploy:local or deploy:sepolia first — then refresh. No manual addresses.";
+  if (!deployedCfg?.ballot) {
+    if (hint) hint.textContent = "Deploy Solana program and copy public/solana-deployed.json (see solana/README.md).";
     return;
   }
-  document.getElementById("registryAddress").value = deployedCfg.registry;
+  programId = new solanaWeb3.PublicKey(deployedCfg.programId);
   if (hint) {
-    hint.textContent = `Registry loaded for chain ${deployedCfg.chainId}. Connect the admin wallet on that network, then Sign & load.`;
+    hint.textContent = `Ballot admin must match on-chain admin for ${deployedCfg.ballot.slice(0, 8)}… on Devnet.`;
   }
 })();

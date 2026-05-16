@@ -11,3 +11,5 @@ typechain-types/
 .DS_Store
 data/applications.json
 public/deployed-addresses.json
+public/solana-deployed.json
+solana/target/
