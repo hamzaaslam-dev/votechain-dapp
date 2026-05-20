@@ -264,7 +264,15 @@ async function approveRow(row) {
     showToast("Whitelisted on-chain", "ok");
     await loadTable();
   } catch (e) {
-    showToast(e.message, "err");
+    console.error("Approve transaction failed:", e);
+    let errorMsg = e.message || String(e);
+    if (typeof e.getLogs === "function") {
+      const logs = e.getLogs();
+      console.error("Transaction Simulation/Execution Logs:\n", logs.join("\n"));
+    } else if (e.logs) {
+      console.error("Transaction Logs:\n", e.logs.join("\n"));
+    }
+    showToast(errorMsg, "err");
   }
 }
 
