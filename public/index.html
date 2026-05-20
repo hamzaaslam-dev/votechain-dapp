@@ -8,7 +8,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="style.css" />
-    <script src="https://unpkg.com/@solana/web3.js@1.95.4/lib/index.iife.min.js"></script>
   </head>
   <body>
     <div class="bg-blobs" aria-hidden="true">
@@ -25,20 +24,15 @@
       </div>
       <div class="nav-right">
         <a href="admin.html" class="btn btn-ghost nav-dash">Admin dashboard</a>
-        <div id="networkBadge" class="net-badge">Not Connected</div>
-        <button type="button" id="connectWallet" class="btn btn-ghost">
-          <span>◎</span> Connect Phantom
-        </button>
       </div>
     </nav>
 
     <div class="page-wrap">
       <header class="hero">
-        <h1 class="hero-title">Anonymous <span class="gradient-text">Solana voting</span></h1>
+        <h1 class="hero-title">Simple <span class="gradient-text">Solana voting</span></h1>
         <p class="hero-sub">
-          Phantom on Devnet · sign once for voting keys (no passphrase) · applications store CNIC only, not your wallet.
+          1) Generate voting ID · 2) Apply with CNIC · 3) Admin approves · 4) Vote with CNIC + same voting ID
         </p>
-        <p id="walletLine" class="admin-hint"></p>
         <p id="deployHint" class="admin-hint"></p>
       </header>
 
@@ -47,22 +41,18 @@
           <div class="card-header">
             <div class="card-num">1</div>
             <div>
-              <div class="card-title">Voting identity</div>
-              <div class="card-desc">Sign a fixed message; commitment and nullifier stay in your browser.</div>
+              <div class="card-title">Voting ID</div>
+              <div class="card-desc">Random ID for this vote. Keep the same browser or write down your CNIC.</div>
             </div>
           </div>
           <div class="card-body">
-            <button type="button" id="btnSignIdentity" class="btn btn-primary" style="width: 100%">
-              Sign to derive keys
+            <button type="button" id="btnGenerateId" class="btn btn-primary" style="width: 100%">
+              Generate voting ID
             </button>
             <div id="identityBox" class="hash-box hidden" style="margin-top: 12px">
               <div class="hash-row">
-                <span class="hash-label">Commitment</span>
-                <span id="commitmentHex" class="hash-val">-</span>
-              </div>
-              <div class="hash-row">
-                <span class="hash-label">Nullifier</span>
-                <span id="nullifierHex" class="hash-val">-</span>
+                <span class="hash-label">Your voting ID</span>
+                <span id="votingIdHex" class="hash-val">-</span>
               </div>
             </div>
           </div>
@@ -72,8 +62,8 @@
           <div class="card-header">
             <div class="card-num">2</div>
             <div>
-              <div class="card-title">Apply for voter access</div>
-              <div class="card-desc">CNIC + name stored for admin. Wallet address is not stored.</div>
+              <div class="card-title">Apply</div>
+              <div class="card-desc">Admin reviews your CNIC. Wallet not required.</div>
             </div>
           </div>
           <div class="card-body">
@@ -91,14 +81,12 @@
                 <input id="applyCnic" class="field-input" maxlength="13" />
               </div>
             </div>
-            <button type="button" id="btnVerifyCnic" class="btn btn-outline" style="margin-top: 10px">Check CNIC (demo list)</button>
-            <p id="cnicResult" class="admin-result"></p>
             <button type="button" id="btnApply" class="btn btn-primary" style="margin-top: 10px; width: 100%">
               Submit application
             </button>
             <p id="applyResult" class="admin-result"></p>
             <button type="button" id="btnCheckStatus" class="btn btn-outline" style="margin-top: 10px; width: 100%">
-              Check Approval Status
+              Check approval status
             </button>
           </div>
         </div>
@@ -107,15 +95,15 @@
           <div class="card-header">
             <div class="card-num">3</div>
             <div>
-              <div class="card-title">Cast vote</div>
-              <div class="card-desc">After admin adds your commitment on-chain.</div>
+              <div class="card-title">Vote</div>
+              <div class="card-desc">Same CNIC + voting ID as step 2, after admin approves.</div>
             </div>
           </div>
           <div class="card-body">
-            <label class="field-label">Proposal ID (0–2)</label>
-            <input id="proposalId" class="field-input" type="number" value="0" min="0" max="7" />
+            <label class="field-label">Proposal (0–2)</label>
+            <input id="proposalId" class="field-input" type="number" value="0" min="0" max="2" />
             <button type="button" id="btnVote" class="btn btn-vote" style="margin-top: 12px; width: 100%">
-              Cast Vote (Gasless)
+              Cast vote
             </button>
             <p id="voteResult" class="admin-result"></p>
           </div>
@@ -125,10 +113,8 @@
 
     <div id="toast" class="toast hidden"><span id="toastIcon">ℹ️</span><span id="toastMsg">-</span></div>
 
-    <footer class="footer">VoteChain · Solana devnet · Phantom</footer>
+    <footer class="footer">VoteChain · Solana devnet</footer>
 
-    <script src="blindSignature.js"></script>
-    <script src="solana-identity.js"></script>
     <script src="shared-config.js"></script>
     <script src="app.js"></script>
   </body>

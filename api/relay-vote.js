@@ -1,6 +1,6 @@
-const { getAdminKey } = require("../lib/adminKeyStore");
-const BlindSignature = require("../public/blindSignature");
+const store = require("../lib/applicationStore");
 const solanaRelayer = require("../lib/solanaRelayer");
+const { assertApprovedVoter } = require("../lib/verifyApprovedVoter");
 
 function parseJsonBody(req) {
   if (req.body && typeof req.body === "object" && !Buffer.isBuffer(req.body)) return req.body;
@@ -27,28 +27,25 @@ module.exports = async (req, res) => {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ ok: false, message: "Method not allowed" });
   }
-  
+
   try {
     const body = parseJsonBody(req);
-    const { votingToken, signature } = body;
+    const cnic = String(body.cnic || "").trim();
+    const votingToken = String(body.votingToken || "").trim().toLowerCase();
     const proposalId = Number(body.proposalId);
-    if (!votingToken || !signature || Number.isNaN(proposalId)) {
-      return res.status(400).json({ ok: false, message: "Missing votingToken, signature, or proposalId" });
-    }
-    
-    const { adminN, adminE } = await getAdminKey();
-    const isValid = await BlindSignature.verify(BigInt(signature), String(votingToken), adminE, adminN);
-    if (!isValid) {
-      return res.status(401).json({
-        ok: false,
-        message:
-          "Invalid admin signature. Click “Check status” again after approval, or submit a new application (admin RSA key may have changed)."
-      });
+
+    if (!cnic || !votingToken || Number.isNaN(proposalId)) {
+      return res.status(400).json({ ok: false, message: "Missing cnic, votingToken, or proposalId" });
     }
 
-    // Try to relay vote on-chain
+    const check = await assertApprovedVoter(cnic, votingToken);
+    if (!check.ok) {
+      return res.status(401).json({ ok: false, message: check.error });
+    }
+
     const txId = await solanaRelayer.relayVote(votingToken, proposalId);
-    
+    await store.setVoted(cnic);
+
     return res.json({ ok: true, txId });
   } catch (e) {
     console.error(e);

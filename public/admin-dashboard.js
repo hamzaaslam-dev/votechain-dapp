@@ -183,7 +183,7 @@ async function loadTable() {
 
   for (const row of apps) {
     const tr = document.createElement("tr");
-    const token = row.blindedToken || row.commitment;
+    const token = row.votingTokenHash || row.blindedToken;
     const short = token ? `${String(token).slice(0, 10)}…${String(token).slice(-8)}` : "-";
     const sub = row.createdAt ? new Date(row.createdAt).toLocaleString() : "-";
     const isPending = row.status === "pending";
@@ -237,12 +237,12 @@ async function rejectRow(id) {
 
 async function approveRow(row) {
   try {
-    if (!row.blindedToken) {
-      throw new Error("Application has no blinded token — voter must submit a new application.");
+    if (!row.votingTokenHash && !row.blindedToken) {
+      throw new Error("Old application — voter must apply again with a new voting ID.");
     }
-    showToast("Signing blinded token…", "pending");
+    showToast("Approving…", "pending");
     await apiAction({ action: "mark-approved", id: row.id });
-    showToast("Approved — voter can check status and vote", "ok");
+    showToast("Approved — voter can vote with CNIC + voting ID", "ok");
     await loadTable();
   } catch (e) {
     showToast(e.message, "err");

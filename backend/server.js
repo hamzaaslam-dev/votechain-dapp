@@ -3,8 +3,8 @@ const express = require("express");
 const cors = require("cors");
 
 const applicationsHandlers = require("../lib/applicationsHandlers");
-const { getAdminKey } = require("../lib/adminKeyStore");
-const BlindSignature = require("../public/blindSignature");
+const store = require("../lib/applicationStore");
+const { assertApprovedVoter } = require("../lib/verifyApprovedVoter");
 
 const app = express();
 app.use(cors());
@@ -17,37 +17,23 @@ app.get("/api/health", (_, res) => {
   res.json({ ok: true, chain: "solana" });
 });
 
-app.get("/api/public-key", async (req, res, next) => {
-  try {
-    const { adminN, adminE } = await getAdminKey();
-    res.json({ ok: true, N: adminN.toString(), E: adminE.toString() });
-  } catch (e) {
-    next(e);
-  }
-});
-
 app.post("/api/relay-vote", async (req, res, next) => {
   try {
-    const { votingToken, signature } = req.body;
+    const { cnic, votingToken } = req.body;
     const proposalId = Number(req.body.proposalId);
-    if (!votingToken || !signature || Number.isNaN(proposalId)) {
-      return res.status(400).json({ ok: false, message: "Missing votingToken, signature, or proposalId" });
-    }
-    
-    const { adminN, adminE } = await getAdminKey();
-    const isValid = await BlindSignature.verify(BigInt(signature), String(votingToken), adminE, adminN);
-    if (!isValid) {
-      return res.status(401).json({
-        ok: false,
-        message:
-          "Invalid admin signature. Click “Check status” again after approval, or submit a new application."
-      });
+    if (!cnic || !votingToken || Number.isNaN(proposalId)) {
+      return res.status(400).json({ ok: false, message: "Missing cnic, votingToken, or proposalId" });
     }
 
-    // Try to relay vote on-chain
+    const check = await assertApprovedVoter(cnic, votingToken);
+    if (!check.ok) {
+      return res.status(401).json({ ok: false, message: check.error });
+    }
+
     const solanaRelayer = require("../lib/solanaRelayer");
-    const txId = await solanaRelayer.relayVote(votingToken, proposalId);
-    
+    const txId = await solanaRelayer.relayVote(String(votingToken).trim().toLowerCase(), proposalId);
+    await store.setVoted(cnic);
+
     res.json({ ok: true, txId });
   } catch (e) {
     next(e);
