@@ -1,8 +1,8 @@
 {
   "cluster": "devnet",
   "programId": "3JPAz1W52SL3fzdyXYALKWJLuoCsVtCcZAs5r3TAjoJW",
-  "ballot": "9hAy4E3gtn3vPTjBHAQXWSosz3jpKUhhXGsF23SrSM3e",
-  "admin": "9trzZKyRne8dNK5Jk85AUWwouuhj6hn6niFiVKdHBzvs",
+  "ballot": "6jHYPDV1kykdxtZ3M5tTyxUNgLTcqmJ6z34qjhe5VZJ8",
+  "admin": "2DyPEBfRtipfap7jzATXxsCLm6oLq3r6kXVLyyVjmxLB",
   "relayer": "DRaHhAuTRr3Wkebt89utrkJav7Nycfv8dN75k4fwSFeX",
   "proposalCount": 3
 }
