@@ -113,10 +113,124 @@ document.getElementById("btnVote").onclick = async () => {
     const explorerUrl = `https://explorer.solana.com/tx/${data.txId}?cluster=devnet`;
     document.getElementById("voteResult").innerHTML = `Vote tx: <a href="${explorerUrl}" target="_blank" class="explorer-link">${data.txId}</a>`;
     showToast("Vote recorded on-chain", "ok");
+    setTimeout(refreshTally, 1200);
   } catch (e) {
     showToast(e.message, "err");
   }
 };
+
+const PROPOSAL_NAMES = {
+  0: "Community Grant Allocation",
+  1: "Protocol Upgrade v2.1",
+  2: "Validator Expansion Program",
+  3: "Developer Funding Initiative",
+  4: "Marketing Campaign Approval",
+  5: "Security Audit Sponsorship",
+  6: "Liquidity Incentive Program",
+  7: "Governance Fee Restructuring"
+};
+
+let activeBallotAddress = null;
+
+async function refreshTally() {
+  if (!activeBallotAddress) {
+    const deployed = await loadDeployedAddresses();
+    if (!deployed?.ballot) return;
+    activeBallotAddress = deployed.ballot;
+  }
+
+  const conn = solanaConnection();
+  const data = await fetchBallotData(conn, activeBallotAddress);
+  if (!data) {
+    document.getElementById("resultsTally").innerHTML = `<div class="results-empty">Could not load ballot details from blockchain</div>`;
+    return;
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const isEnded = now > data.endTs;
+
+  let statusBadge = "";
+  let timeText = "";
+
+  if (isEnded) {
+    statusBadge = `<span class="status-pill err">Concluded</span>`;
+    timeText = `Voting ended on ${new Date(data.endTs * 1000).toLocaleString()}`;
+  } else {
+    statusBadge = `<span class="status-pill ok">Active</span>`;
+    const diff = data.endTs - now;
+    const days = Math.floor(diff / 86400);
+    const hours = Math.floor((diff % 86400) / 3600);
+    const mins = Math.floor((diff % 3600) / 60);
+    const parts = [];
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    parts.push(`${mins}m`);
+    timeText = `Ends in: ${parts.join(" ")}`;
+  }
+
+  const votesSlice = data.proposalVotes.slice(0, data.proposalCount);
+  const totalVotes = votesSlice.reduce((sum, v) => sum + v, 0);
+  const maxVotes = Math.max(...votesSlice);
+
+  let proposalRowsHtml = "";
+  for (let i = 0; i < data.proposalCount; i++) {
+    const votes = votesSlice[i];
+    const pct = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+    const isWinner = maxVotes > 0 && votes === maxVotes;
+    const winnerClass = isWinner ? "winner" : "";
+    const name = PROPOSAL_NAMES[i] || `Proposal ${i}`;
+
+    proposalRowsHtml += `
+      <div class="result-row">
+        <div class="result-meta">
+          <span class="result-name">${name}</span>
+          <span class="result-votes">${votes} votes (${pct}%)</span>
+        </div>
+        <div class="result-bar-bg">
+          <div class="result-bar-fill ${winnerClass}" style="width: ${pct}%"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  document.getElementById("resultsTally").innerHTML = `
+    <div class="results-bars">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <span class="field-label" style="margin-bottom: 0;">Status</span>
+        ${statusBadge}
+      </div>
+      <div style="font-size: 0.78rem; color: var(--muted); margin-bottom: 16px; text-align: right;">
+        ${timeText}
+      </div>
+      ${proposalRowsHtml}
+    </div>
+  `;
+}
+
+async function fetchBallotData(connection, ballotAddress) {
+  try {
+    const info = await connection.getAccountInfo(new solanaWeb3.PublicKey(ballotAddress));
+    if (!info?.data || info.data.length < 154) {
+      return null;
+    }
+    const data = info.data;
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+
+    const startTs = Number(view.getBigInt64(73, true));
+    const endTs = Number(view.getBigInt64(81, true));
+    const proposalCount = data[89];
+
+    const proposalVotes = [];
+    for (let i = 0; i < 8; i++) {
+      proposalVotes.push(Number(view.getBigUint64(90 + i * 8, true)));
+    }
+
+    return { startTs, endTs, proposalCount, proposalVotes };
+  } catch (e) {
+    console.error("fetchBallotData error:", e);
+    return null;
+  }
+}
 
 (async function init() {
   const deployed = await loadDeployedAddresses();
@@ -125,5 +239,8 @@ document.getElementById("btnVote").onclick = async () => {
     hint.textContent = "Deploy Solana and add public/solana-deployed.json";
   } else if (hint) {
     hint.textContent = `Devnet · ballot ${deployed.ballot.slice(0, 8)}…`;
+    activeBallotAddress = deployed.ballot;
+    refreshTally();
+    setInterval(refreshTally, 15000);
   }
 })();
