@@ -189,7 +189,7 @@ async function loadTable() {
     const isPending = row.status === "pending";
     const extra =
       row.status === "approved" && row.approvedTx
-        ? `<div class="dash-meta">Tx: ${escapeHtml(row.approvedTx.slice(0, 16))}…</div>`
+        ? `<div class="dash-meta">Tx: <a href="https://explorer.solana.com/tx/${row.approvedTx}?cluster=devnet" target="_blank" class="explorer-link">${escapeHtml(row.approvedTx.slice(0, 16))}…</a></div>`
         : "";
 
     tr.innerHTML = `

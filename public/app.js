@@ -110,7 +110,8 @@ document.getElementById("btnVote").onclick = async () => {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.message || "Vote failed");
 
-    document.getElementById("voteResult").textContent = `Vote tx: ${data.txId}`;
+    const explorerUrl = `https://explorer.solana.com/tx/${data.txId}?cluster=devnet`;
+    document.getElementById("voteResult").innerHTML = `Vote tx: <a href="${explorerUrl}" target="_blank" class="explorer-link">${data.txId}</a>`;
     showToast("Vote recorded on-chain", "ok");
   } catch (e) {
     showToast(e.message, "err");
