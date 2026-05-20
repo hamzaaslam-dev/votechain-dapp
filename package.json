@@ -12,6 +12,7 @@
     "@solana/web3.js": "^1.95.4",
     "@vercel/kv": "^3.0.0",
     "blind-signatures": "^1.0.7",
+    "node-rsa": "^1.0.8",
     "bs58": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

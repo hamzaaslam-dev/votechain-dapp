@@ -11,7 +11,7 @@ typechain-types/
 .DS_Store
 data/applications.json
 public/deployed-addresses.json
-public/solana-deployed.json
+# Commit public/solana-deployed.json so Vercel/static hosting can load ballot config.
 solana/target/
 .admin-solana-keypair.json
 .admin-rsa-key.json

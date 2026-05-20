@@ -5,10 +5,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-solana_votechain = "FkbGQ4md6ab3JtNuQQYaaWMHZLQou3oKaawKFdqzXkXk"
+solana_votechain = "3JPAz1W52SL3fzdyXYALKWJLuoCsVtCcZAs5r3TAjoJW"
 
 [programs.devnet]
-solana_votechain = "FkbGQ4md6ab3JtNuQQYaaWMHZLQou3oKaawKFdqzXkXk"
+solana_votechain = "3JPAz1W52SL3fzdyXYALKWJLuoCsVtCcZAs5r3TAjoJW"
 
 [registry]
 url = "https://api.apr.dev"

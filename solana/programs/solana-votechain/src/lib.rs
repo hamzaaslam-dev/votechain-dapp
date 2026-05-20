@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("FkbGQ4md6ab3JtNuQQYaaWMHZLQou3oKaawKFdqzXkXk");
+declare_id!("3JPAz1W52SL3fzdyXYALKWJLuoCsVtCcZAs5r3TAjoJW");
 
 /// Max proposals (fixed array for account size).
 pub const MAX_PROPOSALS: usize = 8;
@@ -156,19 +156,6 @@ pub struct RelayVote<'info> {
     #[account(
         mut,
         has_one = relayer
-    )]
-    pub ballot: Account<'info, Ballot>,
-}
-
-#[derive(Accounts)]
-pub struct ManageBallot<'info> {
-    #[account(mut)]
-    pub admin: Signer<'info>,
-    #[account(
-        mut,
-        seeds = [b"ballot", admin.key().as_ref()],
-        bump = ballot.bump,
-        has_one = admin
     )]
     pub ballot: Account<'info, Ballot>,
 }

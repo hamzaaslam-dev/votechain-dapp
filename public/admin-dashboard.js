@@ -65,7 +65,11 @@ async function sendProgramTx(instruction) {
 
 async function ensureSignedSession() {
   if (!walletPubkey) throw new Error("Connect Phantom first");
-  if (!deployedCfg?.ballot) throw new Error("Missing solana-deployed.json");
+  if (!deployedCfg?.ballot) {
+    throw new Error(
+      "Missing solana-deployed.json — deploy Solana (see solana/README.md), copy to public/, commit, and redeploy Vercel."
+    );
+  }
 
   let sess = readSession();
   if (

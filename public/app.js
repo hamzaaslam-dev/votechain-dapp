@@ -5,6 +5,7 @@ let programId = null;
 
 let adminE = null;
 let adminN = null;
+let adminKeyLoadPromise = null;
 let votingToken = localStorage.getItem('votingToken') || null;
 let blindingR = localStorage.getItem('blindingR') ? BigInt(localStorage.getItem('blindingR')) : null;
 let signedToken = localStorage.getItem('signedToken') || null;
@@ -99,10 +100,25 @@ document.getElementById("btnVerifyCnic").onclick = async () => {
   }
 };
 
+async function ensureAdminPublicKey() {
+  if (adminE && adminN) return;
+  if (adminKeyLoadPromise) {
+    await adminKeyLoadPromise;
+    if (adminE && adminN) return;
+  }
+  const res = await fetch("/api/public-key", { cache: "no-store" });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok || data.N == null || data.E == null) {
+    throw new Error(data.message || "Could not load admin public key. Is the API running?");
+  }
+  adminN = BigInt(data.N);
+  adminE = BigInt(data.E);
+}
+
 document.getElementById("btnApply").onclick = async () => {
   try {
     if (!votingToken) throw new Error("Generate token first");
-    if (!adminE || !adminN) throw new Error("Admin public key not loaded yet");
+    await ensureAdminPublicKey();
 
     const fullName = document.getElementById("applyFullName").value.trim();
     const phone = document.getElementById("applyPhone").value.trim();
@@ -148,6 +164,7 @@ if (btnCheckStatus) {
       });
       const data = await res.json();
       if (data.status === "approved" && data.signedToken) {
+        await ensureAdminPublicKey();
         if (!blindingR) throw new Error("Blinding factor R not found in local storage");
         const unblinded = BlindSignature.unblind(BigInt(data.signedToken), blindingR, adminN);
         signedToken = unblinded.toString();
@@ -189,17 +206,14 @@ document.getElementById("btnVote").onclick = async () => {
   }
 };
 
-(async function init() {
-  try {
-    const res = await fetch("/api/public-key");
-    const data = await res.json();
-    adminE = BigInt(data.E);
-    adminN = BigInt(data.N);
-    console.log("Loaded Admin Public Key");
-  } catch (e) {
-    console.error("Failed to load admin key", e);
-  }
+adminKeyLoadPromise = ensureAdminPublicKey()
+  .then(() => console.log("Admin public key loaded"))
+  .catch((e) => {
+    console.error("Failed to load admin public key", e);
+    showToast("Admin public key failed to load — retry after refreshing", "err");
+  });
 
+(async function init() {
   deployed = await loadDeployedAddresses();
   const hint = document.getElementById("deployHint");
   if (!deployed?.programId) {
