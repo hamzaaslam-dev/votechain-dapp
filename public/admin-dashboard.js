@@ -183,7 +183,8 @@ async function loadTable() {
 
   for (const row of apps) {
     const tr = document.createElement("tr");
-    const short = row.commitment ? `${row.commitment.slice(0, 10)}…${row.commitment.slice(-8)}` : "-";
+    const token = row.blindedToken || row.commitment;
+    const short = token ? `${String(token).slice(0, 10)}…${String(token).slice(-8)}` : "-";
     const sub = row.createdAt ? new Date(row.createdAt).toLocaleString() : "-";
     const isPending = row.status === "pending";
     const extra =
@@ -195,7 +196,7 @@ async function loadTable() {
       <td>${escapeHtml(row.fullName)}</td>
       <td><code>${escapeHtml(row.cnic)}</code></td>
       <td>${escapeHtml(row.phone)}</td>
-      <td><code title="${escapeHtml(row.commitment)}">${short}</code>${extra}</td>
+      <td><code title="${escapeHtml(token || "")}">${short}</code>${extra}</td>
       <td>${sub}</td>
       <td class="dash-actions"></td>
     `;
@@ -203,7 +204,7 @@ async function loadTable() {
     if (isPending) {
       const approve = document.createElement("button");
       approve.className = "btn btn-primary btn-sm";
-      approve.textContent = "Approve (Phantom)";
+      approve.textContent = "Approve";
       approve.onclick = () => approveRow(row);
       const reject = document.createElement("button");
       reject.className = "btn btn-outline btn-sm";
@@ -236,26 +237,12 @@ async function rejectRow(id) {
 
 async function approveRow(row) {
   try {
-    if (!walletPubkey || !programId) throw new Error("Connect Phantom and load deploy config");
-    const commitment = hexToBytes32Array(row.commitment);
-    const ballotPk = new solanaWeb3.PublicKey(deployedCfg.ballot);
-    const data = buildIxData("add_eligible", () => {
-      const buf = new Uint8Array(32);
-      writeBytes32(buf, 0, commitment);
-      return buf;
-    });
-    const ix = new solanaWeb3.TransactionInstruction({
-      keys: [
-        { pubkey: walletPubkey, isSigner: true, isWritable: true },
-        { pubkey: ballotPk, isSigner: false, isWritable: true }
-      ],
-      programId,
-      data
-    });
-    showToast("Confirm add_eligible in Phantom…", "pending");
-    const sig = await sendProgramTx(ix);
-    await apiAction({ action: "mark-approved", id: row.id, approvedTx: sig });
-    showToast("Approved on-chain", "ok");
+    if (!row.blindedToken) {
+      throw new Error("Application has no blinded token — voter must submit a new application.");
+    }
+    showToast("Signing blinded token…", "pending");
+    await apiAction({ action: "mark-approved", id: row.id });
+    showToast("Approved — voter can check status and vote", "ok");
     await loadTable();
   } catch (e) {
     showToast(e.message, "err");
