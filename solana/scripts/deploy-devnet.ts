@@ -23,8 +23,9 @@ async function main() {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
   const program = anchor.workspace.SolanaVotechain as Program<SolanaVotechain>;
+  const adminPk = new PublicKey("2DyPEBfRtipfap7jzATXxsCLm6oLq3r6kXVLyyVjmxLB");
   const admin = (provider.wallet as anchor.Wallet).payer;
-  const ballot = ballotPda(program.programId, admin.publicKey);
+  const ballot = ballotPda(program.programId, adminPk);
 
   const relayerKeyPath = path.join(__dirname, "../..", ".admin-solana-keypair.json");
   let relayerPubkey = admin.publicKey; // default fallback
@@ -43,7 +44,13 @@ async function main() {
   } catch {
     const sig = await program.methods
       .initBallot(new anchor.BN(now - 10), new anchor.BN(now + 86400 * 7), 3)
-      .accounts({ admin: admin.publicKey, relayer: relayerPubkey, ballot } as never)
+      .accounts({
+        payer: admin.publicKey,
+        admin: adminPk,
+        relayer: relayerPubkey,
+        ballot,
+        systemProgram: anchor.web3.SystemProgram.programId
+      } as never)
       .rpc();
     console.log("init_ballot tx:", sig);
   }
@@ -52,7 +59,7 @@ async function main() {
     cluster: "devnet",
     programId: program.programId.toBase58(),
     ballot: ballot.toBase58(),
-    admin: admin.publicKey.toBase58(),
+    admin: adminPk.toBase58(),
     proposalCount: 3
   };
   const outPath = path.join(__dirname, "../target/deployed-devnet.json");

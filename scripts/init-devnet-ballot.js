@@ -41,13 +41,14 @@ async function main() {
   const walletPath =
     process.env.ANCHOR_WALLET ||
     path.join(process.env.HOME || "", ".config/solana/id.json");
-  const admin = loadKeypair(walletPath);
+  const admin = loadKeypair(walletPath); // payer
+  const adminPk = new PublicKey("2DyPEBfRtipfap7jzATXxsCLm6oLq3r6kXVLyyVjmxLB");
   const relayerPath = path.join(__dirname, "..", ".admin-solana-keypair.json");
   const relayer = fs.existsSync(relayerPath)
     ? loadKeypair(relayerPath)
     : admin;
 
-  const ballot = ballotPda(admin.publicKey);
+  const ballot = ballotPda(adminPk);
   const connection = new Connection(RPC, "confirmed");
   const existing = await connection.getAccountInfo(ballot);
   if (!existing) {
@@ -58,8 +59,9 @@ async function main() {
     ]);
     const ix = new TransactionInstruction({
       keys: [
-        { pubkey: admin.publicKey, isSigner: true, isWritable: true },
-        { pubkey: relayer.publicKey, isSigner: false, isWritable: false },
+        { pubkey: admin.publicKey, isSigner: true, isWritable: true }, // payer
+        { pubkey: adminPk, isSigner: false, isWritable: false }, // admin
+        { pubkey: relayer.publicKey, isSigner: false, isWritable: false }, // relayer
         { pubkey: ballot, isSigner: false, isWritable: true },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
       ],
@@ -78,7 +80,7 @@ async function main() {
     cluster: "devnet",
     programId: PROGRAM_ID.toBase58(),
     ballot: ballot.toBase58(),
-    admin: admin.publicKey.toBase58(),
+    admin: adminPk.toBase58(),
     relayer: relayer.publicKey.toBase58(),
     proposalCount: 3
   };

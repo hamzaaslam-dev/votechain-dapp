@@ -20,9 +20,15 @@
       ],
       "accounts": [
         {
-          "name": "admin",
+          "name": "payer",
           "writable": true,
           "signer": true
+        },
+        {
+          "name": "admin"
+        },
+        {
+          "name": "relayer"
         },
         {
           "name": "ballot",
@@ -120,6 +126,11 @@
         25
       ],
       "accounts": [
+        {
+          "name": "relayer",
+          "writable": true,
+          "signer": true
+        },
         {
           "name": "ballot",
           "writable": true
@@ -256,6 +267,10 @@
         "fields": [
           {
             "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "relayer",
             "type": "pubkey"
           },
           {

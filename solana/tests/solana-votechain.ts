@@ -46,7 +46,9 @@ describe("solana-votechain", () => {
     await program.methods
       .initBallot(new anchor.BN(now - 10), new anchor.BN(now + 3600), 2)
       .accounts({
+        payer: admin.publicKey,
         admin: admin.publicKey,
+        relayer: admin.publicKey,
         ballot,
         systemProgram: anchor.web3.SystemProgram.programId
       })
@@ -62,7 +64,8 @@ describe("solana-votechain", () => {
 
     await program.methods
       .vote(0, commitment, nullifier)
-      .accounts({ ballot })
+      .accounts({ relayer: admin.publicKey, ballot })
+      .signers([admin])
       .rpc();
 
     const acct = await program.account.ballot.fetch(ballot);
@@ -70,7 +73,7 @@ describe("solana-votechain", () => {
 
     let doubleVoteFailed = false;
     try {
-      await program.methods.vote(0, commitment, nullifier).accounts({ ballot }).rpc();
+      await program.methods.vote(0, commitment, nullifier).accounts({ relayer: admin.publicKey, ballot }).signers([admin]).rpc();
     } catch {
       doubleVoteFailed = true;
     }
@@ -86,7 +89,9 @@ describe("solana-votechain", () => {
     await program.methods
       .initBallot(new anchor.BN(now + 3600), new anchor.BN(now + 7200), 2)
       .accounts({
+        payer: admin.publicKey,
         admin: admin.publicKey,
+        relayer: admin.publicKey,
         ballot,
         systemProgram: anchor.web3.SystemProgram.programId
       })
@@ -102,7 +107,7 @@ describe("solana-votechain", () => {
 
     let doubleVoteFailed = false;
     try {
-      await program.methods.vote(0, commitment, nullifier).accounts({ ballot }).rpc();
+      await program.methods.vote(0, commitment, nullifier).accounts({ relayer: admin.publicKey, ballot }).signers([admin]).rpc();
     } catch {
       doubleVoteFailed = true;
     }
@@ -114,7 +119,7 @@ describe("solana-votechain", () => {
       .signers([admin])
       .rpc();
 
-    await program.methods.vote(0, commitment, nullifier).accounts({ ballot }).rpc();
+    await program.methods.vote(0, commitment, nullifier).accounts({ relayer: admin.publicKey, ballot }).signers([admin]).rpc();
     const acct = await program.account.ballot.fetch(ballot);
     expect(acct.proposalVotes[0].toNumber()).to.equal(1);
   });

@@ -132,12 +132,14 @@ pub struct Ballot {
 #[derive(Accounts)]
 pub struct InitBallot<'info> {
     #[account(mut)]
-    pub admin: Signer<'info>,
+    pub payer: Signer<'info>,
+    /// CHECK: The ballot admin public key
+    pub admin: UncheckedAccount<'info>,
     /// CHECK: The backend relayer public key
     pub relayer: UncheckedAccount<'info>,
     #[account(
         init,
-        payer = admin,
+        payer = payer,
         space = 8 + Ballot::INIT_SPACE,
         seeds = [b"ballot", admin.key().as_ref()],
         bump
