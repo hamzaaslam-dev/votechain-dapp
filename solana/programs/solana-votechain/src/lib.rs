@@ -63,14 +63,15 @@ pub mod solana_votechain {
         Ok(())
     }
 
-    /// Cast a vote via Relayer. The Admin Backend verifies the Blind Signature off-chain
-    /// and then submits the vote to the blockchain.
+    /// Relayer submits vote: commitment must be whitelisted; nullifier hides wallet link on-chain.
     pub fn vote(
         ctx: Context<RelayVote>,
         proposal_id: u8,
-        voting_token_hash: [u8; 32],
+        commitment: [u8; 32],
+        nullifier: [u8; 32],
     ) -> Result<()> {
-        require!(voting_token_hash != [0u8; 32], VotechainError::BadNullifier);
+        require!(commitment != [0u8; 32], VotechainError::BadCommitment);
+        require!(nullifier != [0u8; 32], VotechainError::BadNullifier);
         let ballot = &mut ctx.accounts.ballot;
         let now = Clock::get()?.unix_timestamp;
         require!(now >= ballot.start_ts, VotechainError::NotStarted);
@@ -80,23 +81,32 @@ pub mod solana_votechain {
             VotechainError::BadProposal
         );
 
-        // Prevent double voting
+        let n_elig = ballot.eligible_len as usize;
+        let mut eligible = false;
+        for j in 0..n_elig {
+            if ballot.eligible[j] == commitment {
+                eligible = true;
+                break;
+            }
+        }
+        require!(eligible, VotechainError::NotEligible);
+
         let n_null = ballot.nullifiers_len as usize;
         for j in 0..n_null {
-            require!(ballot.nullifiers[j] != voting_token_hash, VotechainError::AlreadyVoted);
+            require!(ballot.nullifiers[j] != nullifier, VotechainError::AlreadyVoted);
         }
         require!(n_null < MAX_ELIGIBLE, VotechainError::NullifierTableFull);
 
-        ballot.nullifiers[n_null] = voting_token_hash;
+        ballot.nullifiers[n_null] = nullifier;
         ballot.nullifiers_len += 1;
-        
+
         let idx = proposal_id as usize;
         ballot.proposal_votes[idx] = ballot.proposal_votes[idx]
             .checked_add(1)
             .ok_or(VotechainError::Overflow)?;
 
         emit!(VoteCast {
-            nullifier: voting_token_hash,
+            nullifier,
             proposal_id: proposal_id as u16,
         });
         Ok(())

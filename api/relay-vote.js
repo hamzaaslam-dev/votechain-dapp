@@ -1,6 +1,14 @@
+const fs = require("fs");
+const path = require("path");
 const store = require("../lib/applicationStore");
 const solanaRelayer = require("../lib/solanaRelayer");
-const { assertApprovedVoter } = require("../lib/verifyApprovedVoter");
+const { isCommitmentEligible } = require("../lib/ballotOnChain");
+const {
+  buildWhitelistMessage,
+  buildVoteMessage,
+  commitmentHexFromRegisterSig,
+  nullifierHexFromVoteSig
+} = require("../lib/walletVoterAuth");
 
 function parseJsonBody(req) {
   if (req.body && typeof req.body === "object" && !Buffer.isBuffer(req.body)) return req.body;
@@ -30,21 +38,53 @@ module.exports = async (req, res) => {
 
   try {
     const body = parseJsonBody(req);
-    const cnic = String(body.cnic || "").trim();
-    const votingToken = String(body.votingToken || "").trim().toLowerCase();
+    const wallet = String(body.wallet || "").trim();
+    const registerMessage = String(body.registerMessage || "");
+    const registerSignature = String(body.registerSignature || "");
+    const voteMessage = String(body.voteMessage || "");
+    const voteSignature = String(body.voteSignature || "");
     const proposalId = Number(body.proposalId);
 
-    if (!cnic || !votingToken || Number.isNaN(proposalId)) {
-      return res.status(400).json({ ok: false, message: "Missing cnic, votingToken, or proposalId" });
+    if (
+      !wallet ||
+      !registerMessage ||
+      !registerSignature ||
+      !voteMessage ||
+      !voteSignature ||
+      Number.isNaN(proposalId)
+    ) {
+      return res.status(400).json({
+        ok: false,
+        message: "Sign whitelist + vote messages in Phantom (no saved secrets)"
+      });
     }
 
-    const check = await assertApprovedVoter(cnic, votingToken);
-    if (!check.ok) {
-      return res.status(401).json({ ok: false, message: check.error });
+    if (voteMessage !== buildVoteMessage(wallet, proposalId)) {
+      return res.status(400).json({ ok: false, message: "Vote message mismatch" });
     }
 
-    const txId = await solanaRelayer.relayVote(votingToken, proposalId);
-    await store.setVoted(cnic);
+    const reg = commitmentHexFromRegisterSig(registerSignature, registerMessage, wallet);
+    if (!reg.ok) return res.status(401).json({ ok: false, message: reg.error });
+
+    const vote = nullifierHexFromVoteSig(voteSignature, voteMessage, wallet);
+    if (!vote.ok) return res.status(401).json({ ok: false, message: vote.error });
+
+    const approved = await store.getApprovedByCommitment(reg.commitmentHex);
+    if (!approved) {
+      return res.status(401).json({ ok: false, message: "Not whitelisted — wait for admin approval" });
+    }
+
+    const deployedPath = path.join(__dirname, "..", "public", "solana-deployed.json");
+    const deployed = JSON.parse(fs.readFileSync(deployedPath, "utf8"));
+    const onChain = await isCommitmentEligible(deployed.ballot, reg.commitmentHex);
+    if (!onChain) {
+      return res.status(401).json({
+        ok: false,
+        message: "Not on-chain whitelist yet — admin must Approve with Phantom"
+      });
+    }
+
+    const txId = await solanaRelayer.relayVote(proposalId, reg.commitmentHex, vote.nullifierHex);
 
     return res.json({ ok: true, txId });
   } catch (e) {

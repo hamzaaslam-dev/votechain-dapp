@@ -3,8 +3,16 @@ const express = require("express");
 const cors = require("cors");
 
 const applicationsHandlers = require("../lib/applicationsHandlers");
+const fs = require("fs");
+const path = require("path");
 const store = require("../lib/applicationStore");
-const { assertApprovedVoter } = require("../lib/verifyApprovedVoter");
+const solanaRelayer = require("../lib/solanaRelayer");
+const { isCommitmentEligible } = require("../lib/ballotOnChain");
+const {
+  buildVoteMessage,
+  commitmentHexFromRegisterSig,
+  nullifierHexFromVoteSig
+} = require("../lib/walletVoterAuth");
 
 const app = express();
 app.use(cors());
@@ -19,21 +27,50 @@ app.get("/api/health", (_, res) => {
 
 app.post("/api/relay-vote", async (req, res, next) => {
   try {
-    const { cnic, votingToken } = req.body;
-    const proposalId = Number(req.body.proposalId);
-    if (!cnic || !votingToken || Number.isNaN(proposalId)) {
-      return res.status(400).json({ ok: false, message: "Missing cnic, votingToken, or proposalId" });
+    const {
+      wallet,
+      registerMessage,
+      registerSignature,
+      voteMessage,
+      voteSignature,
+      proposalId
+    } = req.body;
+    const pid = Number(proposalId);
+
+    if (
+      !wallet ||
+      !registerMessage ||
+      !registerSignature ||
+      !voteMessage ||
+      !voteSignature ||
+      Number.isNaN(pid)
+    ) {
+      return res.status(400).json({ ok: false, message: "Missing wallet signatures" });
     }
 
-    const check = await assertApprovedVoter(cnic, votingToken);
-    if (!check.ok) {
-      return res.status(401).json({ ok: false, message: check.error });
+    if (voteMessage !== buildVoteMessage(wallet, pid)) {
+      return res.status(400).json({ ok: false, message: "Vote message mismatch" });
     }
 
-    const solanaRelayer = require("../lib/solanaRelayer");
-    const txId = await solanaRelayer.relayVote(String(votingToken).trim().toLowerCase(), proposalId);
-    await store.setVoted(cnic);
+    const reg = commitmentHexFromRegisterSig(registerSignature, registerMessage, wallet);
+    if (!reg.ok) return res.status(401).json({ ok: false, message: reg.error });
 
+    const vote = nullifierHexFromVoteSig(voteSignature, voteMessage, wallet);
+    if (!vote.ok) return res.status(401).json({ ok: false, message: vote.error });
+
+    const approved = await store.getApprovedByCommitment(reg.commitmentHex);
+    if (!approved) {
+      return res.status(401).json({ ok: false, message: "Not whitelisted" });
+    }
+
+    const deployed = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "..", "public", "solana-deployed.json"), "utf8")
+    );
+    if (!(await isCommitmentEligible(deployed.ballot, reg.commitmentHex))) {
+      return res.status(401).json({ ok: false, message: "Not on-chain whitelist" });
+    }
+
+    const txId = await solanaRelayer.relayVote(pid, reg.commitmentHex, vote.nullifierHex);
     res.json({ ok: true, txId });
   } catch (e) {
     next(e);

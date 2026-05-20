@@ -183,7 +183,7 @@ async function loadTable() {
 
   for (const row of apps) {
     const tr = document.createElement("tr");
-    const token = row.votingTokenHash || row.blindedToken;
+    const token = row.commitmentHex || row.blindedToken;
     const short = token ? `${String(token).slice(0, 10)}…${String(token).slice(-8)}` : "-";
     const sub = row.createdAt ? new Date(row.createdAt).toLocaleString() : "-";
     const isPending = row.status === "pending";
@@ -237,12 +237,31 @@ async function rejectRow(id) {
 
 async function approveRow(row) {
   try {
-    if (!row.votingTokenHash && !row.blindedToken) {
-      throw new Error("Old application — voter must apply again with a new voting ID.");
+    if (!row.commitmentHex) {
+      throw new Error("Old row — voter must whitelist again with Phantom");
     }
-    showToast("Approving…", "pending");
-    await apiAction({ action: "mark-approved", id: row.id });
-    showToast("Approved — voter can vote with CNIC + voting ID", "ok");
+    if (!walletPubkey || !programId) throw new Error("Connect Phantom and load deploy config");
+
+    const commitment = hexToBytes32Array(row.commitmentHex);
+    const ballotPk = new solanaWeb3.PublicKey(deployedCfg.ballot);
+    const data = buildIxData("add_eligible", () => {
+      const buf = new Uint8Array(32);
+      writeBytes32(buf, 0, commitment);
+      return buf;
+    });
+    const ix = new solanaWeb3.TransactionInstruction({
+      keys: [
+        { pubkey: walletPubkey, isSigner: true, isWritable: true },
+        { pubkey: ballotPk, isSigner: false, isWritable: true }
+      ],
+      programId,
+      data
+    });
+
+    showToast("Sign add_eligible in Phantom…", "pending");
+    const sig = await sendProgramTx(ix);
+    await apiAction({ action: "mark-approved", id: row.id, approvedTx: sig });
+    showToast("Whitelisted on-chain", "ok");
     await loadTable();
   } catch (e) {
     showToast(e.message, "err");

@@ -3,107 +3,67 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>VoteChain — Solana Voting</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <title>VoteChain — Wallet voting</title>
     <link rel="stylesheet" href="style.css" />
+    <script src="https://unpkg.com/@solana/web3.js@1.95.4/lib/index.iife.min.js"></script>
   </head>
   <body>
-    <div class="bg-blobs" aria-hidden="true">
-      <div class="blob blob-1"></div>
-      <div class="blob blob-2"></div>
-      <div class="blob blob-3"></div>
-    </div>
-
     <nav class="navbar">
       <div class="nav-brand">
         <span class="nav-icon">◎</span>
         <span class="nav-title">VoteChain</span>
-        <span class="nav-badge">Solana Devnet</span>
       </div>
       <div class="nav-right">
-        <a href="admin.html" class="btn btn-ghost nav-dash">Admin dashboard</a>
+        <a href="admin.html" class="btn btn-ghost nav-dash">Admin</a>
+        <button type="button" id="connectWallet" class="btn btn-primary">Connect Phantom</button>
       </div>
     </nav>
 
     <div class="page-wrap">
       <header class="hero">
-        <h1 class="hero-title">Simple <span class="gradient-text">Solana voting</span></h1>
+        <h1 class="hero-title">Wallet <span class="gradient-text">voting</span></h1>
         <p class="hero-sub">
-          1) Generate voting ID · 2) Apply with CNIC · 3) Admin approves · 4) Vote with CNIC + same voting ID
+          Phantom for every step. CNIC only for whitelist. Vote uses wallet signatures only — nothing saved in the browser.
         </p>
+        <p id="walletLine" class="admin-hint"></p>
         <p id="deployHint" class="admin-hint"></p>
       </header>
 
       <main class="cards-grid">
-        <div class="card">
+        <div class="card card-wide">
           <div class="card-header">
             <div class="card-num">1</div>
             <div>
-              <div class="card-title">Voting ID</div>
-              <div class="card-desc">Random ID for this vote. Keep the same browser or write down your CNIC.</div>
+              <div class="card-title">Whitelist (CNIC + wallet sign)</div>
+              <div class="card-desc">Admin sees CNIC to approve. On-chain vote uses a separate nullifier — not your CNIC.</div>
             </div>
           </div>
           <div class="card-body">
-            <button type="button" id="btnGenerateId" class="btn btn-primary" style="width: 100%">
-              Generate voting ID
+            <label class="field-label">CNIC (13 digits)</label>
+            <input id="applyCnic" class="field-input" maxlength="13" />
+            <button type="button" id="btnWhitelist" class="btn btn-primary" style="margin-top: 10px; width: 100%">
+              Sign &amp; submit whitelist
             </button>
-            <div id="identityBox" class="hash-box hidden" style="margin-top: 12px">
-              <div class="hash-row">
-                <span class="hash-label">Your voting ID</span>
-                <span id="votingIdHex" class="hash-val">-</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card card-wide">
-          <div class="card-header">
-            <div class="card-num">2</div>
-            <div>
-              <div class="card-title">Apply</div>
-              <div class="card-desc">Admin reviews your CNIC. Wallet not required.</div>
-            </div>
-          </div>
-          <div class="card-body">
-            <div class="admin-grid">
-              <div>
-                <label class="field-label">Full name</label>
-                <input id="applyFullName" class="field-input" />
-              </div>
-              <div>
-                <label class="field-label">Phone</label>
-                <input id="applyPhone" class="field-input" />
-              </div>
-              <div>
-                <label class="field-label">CNIC (13 digits)</label>
-                <input id="applyCnic" class="field-input" maxlength="13" />
-              </div>
-            </div>
-            <button type="button" id="btnApply" class="btn btn-primary" style="margin-top: 10px; width: 100%">
-              Submit application
+            <button type="button" id="btnCheckStatus" class="btn btn-outline" style="margin-top: 8px; width: 100%">
+              Sign &amp; check status
             </button>
             <p id="applyResult" class="admin-result"></p>
-            <button type="button" id="btnCheckStatus" class="btn btn-outline" style="margin-top: 10px; width: 100%">
-              Check approval status
-            </button>
           </div>
         </div>
 
         <div class="card">
           <div class="card-header">
-            <div class="card-num">3</div>
+            <div class="card-num">2</div>
             <div>
-              <div class="card-title">Vote</div>
-              <div class="card-desc">Same CNIC + voting ID as step 2, after admin approves.</div>
+              <div class="card-title">Vote (wallet sign only)</div>
+              <div class="card-desc">Sign two messages in Phantom. API never receives your CNIC on vote.</div>
             </div>
           </div>
           <div class="card-body">
             <label class="field-label">Proposal (0–2)</label>
             <input id="proposalId" class="field-input" type="number" value="0" min="0" max="2" />
             <button type="button" id="btnVote" class="btn btn-vote" style="margin-top: 12px; width: 100%">
-              Cast vote
+              Sign &amp; cast vote
             </button>
             <p id="voteResult" class="admin-result"></p>
           </div>
@@ -112,10 +72,10 @@
     </div>
 
     <div id="toast" class="toast hidden"><span id="toastIcon">ℹ️</span><span id="toastMsg">-</span></div>
-
-    <footer class="footer">VoteChain · Solana devnet</footer>
+    <footer class="footer">VoteChain · Phantom · Devnet · nothing stored locally</footer>
 
     <script src="shared-config.js"></script>
+    <script src="wallet-voter.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
