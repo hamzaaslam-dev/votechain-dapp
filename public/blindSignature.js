@@ -49,22 +49,35 @@ async function sha256Int(message) {
     }
 }
 
-function randomBigInt(maxN) {
-    let rHex;
-    if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
-        const arr = new Uint8Array(32);
-        window.crypto.getRandomValues(arr);
-        rHex = Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
-    } else {
-        const crypto = require('crypto');
-        rHex = crypto.randomBytes(32).toString('hex');
+function gcd(a, b) {
+    while (b !== 0n) {
+        const t = b;
+        b = a % b;
+        a = t;
     }
-    return BigInt('0x' + rHex) % maxN;
+    return a;
+}
+
+function randomCoprime(N) {
+    for (let i = 0; i < 32; i++) {
+        let rHex;
+        if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
+            const arr = new Uint8Array(32);
+            window.crypto.getRandomValues(arr);
+            rHex = Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+        } else {
+            const crypto = require('crypto');
+            rHex = crypto.randomBytes(32).toString('hex');
+        }
+        const r = (BigInt('0x' + rHex) % N) || 1n;
+        if (gcd(r, N) === 1n) return r;
+    }
+    throw new Error('Could not pick blinding factor');
 }
 
 async function blind(message, N, E) {
-    const msgHash = await sha256Int(message);
-    const r = randomBigInt(N);
+    const msgHash = (await sha256Int(message)) % N;
+    const r = randomCoprime(N);
     const blinded = (msgHash * modPow(r, E, N)) % N;
     return { blinded, r };
 }
@@ -78,16 +91,21 @@ function unblind(signedBlinded, r, N) {
 }
 
 async function verify(signed, message, E, N) {
-    const msgHash = await sha256Int(message);
-    const result = modPow(signed, E, N);
+    const msgHash = (await sha256Int(message)) % N;
+    const result = modPow(signed % N, E, N);
     return result === msgHash;
+}
+
+function checkBlindedSignature(signedBlinded, blinded, E, N) {
+    return modPow(BigInt(signedBlinded), E, N) === BigInt(blinded);
 }
 
 const BlindSignature = {
     blind,
     sign,
     unblind,
-    verify
+    verify,
+    checkBlindedSignature
 };
 
 if (typeof module !== 'undefined' && module.exports) {

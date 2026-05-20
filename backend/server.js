@@ -28,14 +28,21 @@ app.get("/api/public-key", async (req, res, next) => {
 
 app.post("/api/relay-vote", async (req, res, next) => {
   try {
-    const { votingToken, signature, proposalId } = req.body;
-    if (!votingToken || !signature || typeof proposalId !== 'number') {
+    const { votingToken, signature } = req.body;
+    const proposalId = Number(req.body.proposalId);
+    if (!votingToken || !signature || Number.isNaN(proposalId)) {
       return res.status(400).json({ ok: false, message: "Missing votingToken, signature, or proposalId" });
     }
     
     const { adminN, adminE } = await getAdminKey();
-    const isValid = await BlindSignature.verify(BigInt(signature), votingToken, adminE, adminN);
-    if (!isValid) return res.status(401).json({ ok: false, message: "Invalid Admin Signature on Voting Token" });
+    const isValid = await BlindSignature.verify(BigInt(signature), String(votingToken), adminE, adminN);
+    if (!isValid) {
+      return res.status(401).json({
+        ok: false,
+        message:
+          "Invalid admin signature. Click “Check status” again after approval, or submit a new application."
+      });
+    }
 
     // Try to relay vote on-chain
     const solanaRelayer = require("../lib/solanaRelayer");

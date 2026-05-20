@@ -71,6 +71,10 @@ document.getElementById("btnSignIdentity").onclick = async () => {
     window.crypto.getRandomValues(array);
     votingToken = Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
     localStorage.setItem('votingToken', votingToken);
+    signedToken = null;
+    blindingR = null;
+    localStorage.removeItem('signedToken');
+    localStorage.removeItem('blindingR');
     
     document.getElementById("commitmentHex").textContent = "Generated locally: " + votingToken.slice(0,10) + "...";
     document.getElementById("nullifierHex").textContent = "N/A (Blind Signatures)";
@@ -100,7 +104,20 @@ document.getElementById("btnVerifyCnic").onclick = async () => {
   }
 };
 
-async function ensureAdminPublicKey() {
+function loadBlindingR() {
+  if (blindingR) return blindingR;
+  const raw = localStorage.getItem("blindingR");
+  if (!raw) return null;
+  blindingR = BigInt(raw);
+  return blindingR;
+}
+
+async function ensureAdminPublicKey(forceRefresh) {
+  if (forceRefresh) {
+    adminE = null;
+    adminN = null;
+    adminKeyLoadPromise = null;
+  }
   if (adminE && adminN) return;
   if (adminKeyLoadPromise) {
     await adminKeyLoadPromise;
@@ -113,6 +130,49 @@ async function ensureAdminPublicKey() {
   }
   adminN = BigInt(data.N);
   adminE = BigInt(data.E);
+}
+
+async function unblindApprovedToken(signedBlinded) {
+  await ensureAdminPublicKey(true);
+  const r = loadBlindingR();
+  if (!r) throw new Error("Blinding factor R missing — submit a new application on this browser.");
+  if (!votingToken) throw new Error("Voting token missing — generate a token and apply again.");
+  const unblinded = BlindSignature.unblind(BigInt(String(signedBlinded)), r, adminN);
+  const ok = await BlindSignature.verify(unblinded, votingToken, adminE, adminN);
+  if (!ok) {
+    throw new Error(
+      "Signature does not match this token. Admin may have re-approved with a new key — apply again."
+    );
+  }
+  signedToken = unblinded.toString();
+  localStorage.setItem("signedToken", signedToken);
+  return signedToken;
+}
+
+async function ensureReadyToVote() {
+  if (!votingToken) throw new Error("Generate a voting token and apply first.");
+  await ensureAdminPublicKey(true);
+  const r = loadBlindingR();
+  if (!r) throw new Error("Apply first on this browser (blinding factor R is stored locally).");
+
+  if (signedToken) {
+    const ok = await BlindSignature.verify(BigInt(signedToken), votingToken, adminE, adminN);
+    if (ok) return;
+  }
+
+  const cnic = localStorage.getItem("applyCnic") || document.getElementById("applyCnic").value.trim();
+  if (!cnic) throw new Error("Check status after approval to finish signing your token.");
+
+  const res = await fetch("/api/status", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cnic })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (data.status !== "approved" || !data.signedToken) {
+    throw new Error(`Not ready to vote (status: ${data.status || "unknown"}). Wait for admin approval.`);
+  }
+  await unblindApprovedToken(data.signedToken);
 }
 
 document.getElementById("btnApply").onclick = async () => {
@@ -129,6 +189,8 @@ document.getElementById("btnApply").onclick = async () => {
     blindingR = r;
     localStorage.setItem('blindingR', blindingR.toString());
     localStorage.setItem('applyCnic', cnic);
+    signedToken = null;
+    localStorage.removeItem('signedToken');
 
     const res = await fetch("/api/apply", {
       method: "POST",
@@ -164,11 +226,7 @@ if (btnCheckStatus) {
       });
       const data = await res.json();
       if (data.status === "approved" && data.signedToken) {
-        await ensureAdminPublicKey();
-        if (!blindingR) throw new Error("Blinding factor R not found in local storage");
-        const unblinded = BlindSignature.unblind(BigInt(data.signedToken), blindingR, adminN);
-        signedToken = unblinded.toString();
-        localStorage.setItem('signedToken', signedToken);
+        await unblindApprovedToken(data.signedToken);
         showToast("Token signed and unblinded successfully! You can vote now.", "ok");
         document.getElementById("applyResult").textContent = "Approved and Signed! Ready to Vote.";
       } else {
@@ -182,7 +240,7 @@ if (btnCheckStatus) {
 
 document.getElementById("btnVote").onclick = async () => {
   try {
-    if (!votingToken || !signedToken) throw new Error("You must apply and be approved to get a signed token first.");
+    await ensureReadyToVote();
     const proposalId = Number(document.getElementById("proposalId").value || 0);
     
     showToast("Submitting vote gaslessly...", "pending");

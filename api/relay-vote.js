@@ -30,14 +30,21 @@ module.exports = async (req, res) => {
   
   try {
     const body = parseJsonBody(req);
-    const { votingToken, signature, proposalId } = body;
-    if (!votingToken || !signature || typeof proposalId !== 'number') {
+    const { votingToken, signature } = body;
+    const proposalId = Number(body.proposalId);
+    if (!votingToken || !signature || Number.isNaN(proposalId)) {
       return res.status(400).json({ ok: false, message: "Missing votingToken, signature, or proposalId" });
     }
     
     const { adminN, adminE } = await getAdminKey();
-    const isValid = await BlindSignature.verify(BigInt(signature), votingToken, adminE, adminN);
-    if (!isValid) return res.status(401).json({ ok: false, message: "Invalid Admin Signature on Voting Token" });
+    const isValid = await BlindSignature.verify(BigInt(signature), String(votingToken), adminE, adminN);
+    if (!isValid) {
+      return res.status(401).json({
+        ok: false,
+        message:
+          "Invalid admin signature. Click “Check status” again after approval, or submit a new application (admin RSA key may have changed)."
+      });
+    }
 
     // Try to relay vote on-chain
     const txId = await solanaRelayer.relayVote(votingToken, proposalId);
