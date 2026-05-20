@@ -3,24 +3,8 @@ const express = require("express");
 const cors = require("cors");
 
 const applicationsHandlers = require("../lib/applicationsHandlers");
-const NodeRSA = require("node-rsa");
-const fs = require("fs");
+const { getAdminKey } = require("../lib/adminKeyStore");
 const BlindSignature = require("../public/blindSignature");
-
-const KEY_FILE = ".admin-rsa-key.json";
-let adminKey;
-if (fs.existsSync(KEY_FILE)) {
-  adminKey = new NodeRSA(JSON.parse(fs.readFileSync(KEY_FILE)));
-} else {
-  adminKey = new NodeRSA({ b: 512 });
-  fs.writeFileSync(KEY_FILE, JSON.stringify(adminKey.exportKey('components-public-private')));
-}
-const adminN = BigInt('0x' + adminKey.keyPair.n.toString(16));
-const adminE = BigInt('0x' + adminKey.keyPair.e.toString(16));
-const adminD = BigInt('0x' + adminKey.keyPair.d.toString(16));
-
-// Expose these for the handler
-applicationsHandlers.setAdminKey(adminD, adminN);
 
 const app = express();
 app.use(cors());
@@ -33,8 +17,13 @@ app.get("/api/health", (_, res) => {
   res.json({ ok: true, chain: "solana" });
 });
 
-app.get("/api/public-key", (req, res) => {
-  res.json({ ok: true, N: adminN.toString(), E: adminE.toString() });
+app.get("/api/public-key", async (req, res, next) => {
+  try {
+    const { adminN, adminE } = await getAdminKey();
+    res.json({ ok: true, N: adminN.toString(), E: adminE.toString() });
+  } catch (e) {
+    next(e);
+  }
 });
 
 app.post("/api/relay-vote", async (req, res, next) => {
@@ -43,6 +32,8 @@ app.post("/api/relay-vote", async (req, res, next) => {
     if (!votingToken || !signature || typeof proposalId !== 'number') {
       return res.status(400).json({ ok: false, message: "Missing votingToken, signature, or proposalId" });
     }
+    
+    const { adminN, adminE } = await getAdminKey();
     const isValid = await BlindSignature.verify(BigInt(signature), votingToken, adminE, adminN);
     if (!isValid) return res.status(401).json({ ok: false, message: "Invalid Admin Signature on Voting Token" });
 
@@ -56,8 +47,21 @@ app.post("/api/relay-vote", async (req, res, next) => {
   }
 });
 
-app.post("/api/apply", (req, res) => applicationsHandlers.handleApply(req, res));
-app.post("/api/status", (req, res) => applicationsHandlers.handleGetStatus(req, res));
+app.post("/api/apply", async (req, res, next) => {
+  try {
+    await applicationsHandlers.handleApply(req, res);
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post("/api/status", async (req, res, next) => {
+  try {
+    await applicationsHandlers.handleGetStatus(req, res);
+  } catch (e) {
+    next(e);
+  }
+});
 
 app.post("/api/admin/applications-list", async (req, res, next) => {
   try {

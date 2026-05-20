@@ -134,32 +134,34 @@ document.getElementById("btnApply").onclick = async () => {
   }
 };
 
-document.getElementById("btnCheckStatus") = document.getElementById("btnCheckStatus") || document.createElement("button"); // Add dynamic button later in HTML
-document.getElementById("btnCheckStatus").onclick = async () => {
-  try {
-    const cnic = localStorage.getItem('applyCnic') || document.getElementById("applyCnic").value.trim();
-    if (!cnic) throw new Error("Enter CNIC to check status");
+const btnCheckStatus = document.getElementById("btnCheckStatus");
+if (btnCheckStatus) {
+  btnCheckStatus.onclick = async () => {
+    try {
+      const cnic = localStorage.getItem('applyCnic') || document.getElementById("applyCnic").value.trim();
+      if (!cnic) throw new Error("Enter CNIC to check status");
 
-    const res = await fetch("/api/status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cnic })
-    });
-    const data = await res.json();
-    if (data.status === "approved" && data.signedToken) {
-      if (!blindingR) throw new Error("Blinding factor R not found in local storage");
-      const unblinded = BlindSignature.unblind(BigInt(data.signedToken), blindingR, adminN);
-      signedToken = unblinded.toString();
-      localStorage.setItem('signedToken', signedToken);
-      showToast("Token signed and unblinded successfully! You can vote now.", "ok");
-      document.getElementById("applyResult").textContent = "Approved and Signed! Ready to Vote.";
-    } else {
-      showToast(`Status: ${data.status}`, "info");
+      const res = await fetch("/api/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cnic })
+      });
+      const data = await res.json();
+      if (data.status === "approved" && data.signedToken) {
+        if (!blindingR) throw new Error("Blinding factor R not found in local storage");
+        const unblinded = BlindSignature.unblind(BigInt(data.signedToken), blindingR, adminN);
+        signedToken = unblinded.toString();
+        localStorage.setItem('signedToken', signedToken);
+        showToast("Token signed and unblinded successfully! You can vote now.", "ok");
+        document.getElementById("applyResult").textContent = "Approved and Signed! Ready to Vote.";
+      } else {
+        showToast(`Status: ${data.status}`, "info");
+      }
+    } catch (e) {
+      showToast(e.message, "err");
     }
-  } catch (e) {
-    showToast(e.message, "err");
-  }
-};
+  };
+}
 
 document.getElementById("btnVote").onclick = async () => {
   try {
